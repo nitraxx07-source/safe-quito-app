@@ -1,4 +1,4 @@
 flask
 flask-cors
 gunicorn
-werkzeug
+psycopg2-binary
