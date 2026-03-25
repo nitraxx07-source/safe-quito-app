@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeQuito - Seguridad Barrial</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+        h1 { color: #1a73e8; margin-bottom: 10px; }
+        p { color: #5f6368; margin-bottom: 30px; }
+        
+        #btnAlerta {
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            background-color: #d93025;
+            color: white;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border: 8px solid #a50e0e;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 8px 15px rgba(217, 48, 37, 0.4);
+            outline: none;
+        }
+        #btnAlerta:active {
+            transform: scale(0.95);
+            box-shadow: 0 4px 8px rgba(217, 48, 37, 0.4);
+        }
+        #btnAlerta:disabled {
+            background-color: #ccc;
+            border-color: #999;
+            cursor: not-allowed;
+        }
+        #status {
+            margin-top: 25px;
+            font-weight: bold;
+            min-height: 20px;
+        }
+        .footer { margin-top: 40px; font-size: 0.8rem; color: #9aa0a6; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>SafeQuito 🛡️</h1>
+        <p>Presiona el botón solo en caso de emergencia real.</p>
+
+        <button id="btnAlerta" onclick="enviarAlerta()">
+            🚨 ENVIAR<br>ALERTA
+        </button>
+
+        <div id="status"></div>
+        
+        <div class="footer">
+            Conectado a: servidor-safe-quito.onrender.com
+        </div>
+    </div>
+
+    <script>
+        // TU URL DE RENDER (Verificada)
+        const URL_API = "https://servidor-safe-quito.onrender.com/api/v1/reportar";
+
+        async function enviarAlerta() {
+            const status = document.getElementById('status');
+            const boton = document.getElementById('btnAlerta');
+            
+            status.innerText = "📍 Obteniendo ubicación GPS...";
+            status.style.color = "#1a73e8";
+            boton.disabled = true;
+
+            // 1. Pedir ubicación al celular
+            if (!navigator.geolocation) {
+                status.innerText = "❌ Tu navegador no soporta GPS";
+                boton.disabled = false;
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(async (pos) => {
+                const gpsData = `${pos.coords.latitude}, ${pos.coords.longitude}`;
+                
+                // 2. Preparar el reporte
+                const reporte = {
+                    cedula_vecino: "1799999999", // Aquí puedes capturar la cédula del login luego
+                    gps: gpsData,
+                    direccion: "Reporte desde dispositivo móvil"
+                };
+
+                try {
+                    // 3. Enviar a Render
+                    const response = await fetch(URL_API, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(reporte)
+                    });
+
+                    if (response.ok) {
+                        status.innerText = "✅ ALERTA ENVIADA CON ÉXITO";
+                        status.style.color = "#188038";
+                    } else {
+                        status.innerText = "❌ Error en el servidor (Revisa Render)";
+                        status.style.color = "#d93025";
+                    }
+                } catch (error) {
+                    status.innerText = "❌ No hay conexión con el servidor";
+                    status.style.color = "#d93025";
+                } finally {
+                    boton.disabled = false;
+                }
+
+            }, (error) => {
+                status.innerText = "❌ Debes permitir el acceso al GPS";
+                status.style.color = "#d93025";
+                boton.disabled = false;
+            }, { enableHighAccuracy: true });
+        }
+    </script>
+
+</body>
+</html>
