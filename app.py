@@ -1,56 +1,47 @@
 import os
 import psycopg2
 from flask import Flask, request, jsonify
-from flask_cors import CORS, cross_origin
+from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app)
 
-DATABASE_URL = os.environ.get('DATABASE_URL')
-
-def conectar_db():
-    # Añadimos sslmode='require' para que Supabase nos deje entrar
-    return psycopg2.connect(DATABASE_URL, sslmode='require')
+def get_db_connection():
+    # Conexión robusta usando las variables individuales
+    return psycopg2.connect(
+        user=os.environ.get('DB_USER'),
+        password=os.environ.get('DB_PASSWORD'),
+        host=os.environ.get('DB_HOST'),
+        port=os.environ.get('DB_PORT'),
+        database=os.environ.get('DB_NAME'),
+        sslmode='require'
+    )
 
 @app.route('/')
 def home():
-    return "Servidor SafeQuito: Conexión IPv4 Activa 🛡️", 200
+    return "Servidor SafeQuito: ¡Conexión Estable! 🛡️", 200
 
-@app.route('/api/v1/reportar', methods=['POST', 'OPTIONS'])
-@cross_origin()
+@app.route('/api/v1/reportar', methods=['POST'])
 def reportar():
-    if request.method == 'OPTIONS':
-        return jsonify({"ok": True}), 200
-    
     datos = request.json
-    conn = None
     try:
-        conn = conectar_db()
+        conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Garantizamos que la tabla existe
+        # Crea la tabla si no existe (doble seguridad)
         cursor.execute('''CREATE TABLE IF NOT EXISTS reportes 
-                          (id SERIAL PRIMARY KEY, 
-                           cedula_vecino TEXT, 
-                           gps TEXT, 
-                           direccion TEXT, 
-                           fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+                          (id SERIAL PRIMARY KEY, cedula_vecino TEXT, gps TEXT, direccion TEXT, fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
         
         cursor.execute("INSERT INTO reportes (cedula_vecino, gps, direccion) VALUES (%s, %s, %s)",
-                       (datos.get('cedula_vecino', '1700000000'), 
-                        datos.get('gps', '0,0'), 
-                        datos.get('direccion', 'Reporte desde Quito')))
+                       (datos.get('cedula_vecino'), datos.get('gps'), datos.get('direccion')))
         
         conn.commit()
         cursor.close()
+        conn.close()
         return jsonify({"mensaje": "¡Alerta guardada exitosamente!"}), 200
     except Exception as e:
-        print(f"Error de Red/DB: {e}")
-        return jsonify({"error": "Fallo de conexión"}), 500
-    finally:
-        if conn:
-            conn.close()
+        print(f"Error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=10000)
