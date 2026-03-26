@@ -9,12 +9,12 @@ CORS(app)
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
 def conectar_db():
-    # Añadimos un tiempo de espera (timeout) para que no se rinda rápido
-    return psycopg2.connect(DATABASE_URL, sslmode='require', connect_timeout=10)
+    # Conexión limpia y directa
+    return psycopg2.connect(DATABASE_URL, sslmode='require')
 
 @app.route('/')
 def home():
-    return "Servidor SafeQuito: ¡Conexión Estable! 🛡️", 200
+    return "Servidor SafeQuito: ¡Listo para proteger el barrio! 🛡️", 200
 
 @app.route('/api/v1/reportar', methods=['POST', 'OPTIONS'])
 @cross_origin()
@@ -28,6 +28,7 @@ def reportar():
         conn = conectar_db()
         cursor = conn.cursor()
         
+        # Crear tabla si no existe
         cursor.execute('''CREATE TABLE IF NOT EXISTS reportes 
                           (id SERIAL PRIMARY KEY, 
                            cedula_vecino TEXT, 
@@ -35,17 +36,18 @@ def reportar():
                            direccion TEXT, 
                            fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
         
+        # Insertar reporte
         cursor.execute("INSERT INTO reportes (cedula_vecino, gps, direccion) VALUES (%s, %s, %s)",
                        (datos.get('cedula_vecino', '1700000000'), 
                         datos.get('gps', '0,0'), 
-                        datos.get('direccion', 'Reporte Móvil')))
+                        datos.get('direccion', 'Reporte desde Celular')))
         
         conn.commit()
         cursor.close()
-        return jsonify({"mensaje": "Alerta guardada en Supabase"}), 200
+        return jsonify({"mensaje": "¡Alerta guardada en Supabase!"}), 200
     except Exception as e:
-        print(f"Error de conexión: {e}")
-        return jsonify({"error": "Error de conexión a la base de datos"}), 500
+        print(f"Error detectado: {e}")
+        return jsonify({"error": "Error de base de datos"}), 500
     finally:
         if conn:
             conn.close()
