@@ -3,72 +3,141 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SafeQuito - Seguridad Barrial</title>
+    <title>SafeQuito - Sistema de Seguridad</title>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; background-color: #f4f4f4; padding: 20px; }
-        .container { max-width: 400px; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        h2 { color: #333; }
-        input { width: 90%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background-color: #e9ecef; margin: 0; padding: 20px; }
+        .container { max-width: 450px; margin: auto; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        h2 { color: #2c3e50; margin-bottom: 5px; }
+        p.subtitle { color: #7f8c8d; margin-bottom: 25px; font-size: 14px; }
         
-        /* Botones de Alerta */
-        .btn-alerta { width: 100%; padding: 20px; margin: 10px 0; border: none; border-radius: 10px; color: white; font-weight: bold; font-size: 18px; cursor: pointer; transition: 0.3s; }
-        .btn-alerta:active { transform: scale(0.95); }
+        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        button.principal { width: 100%; padding: 15px; background-color: #2ecc71; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 10px; }
         
-        .rojo { background-color: #d32f2f; height: 100px; font-size: 24px; } /* AUXILIO */
-        .naranja { background-color: #f57c00; } /* ROBO */
-        .amarillo { background-color: #fbc02d; color: #333; } /* SOSPECHOSO */
-        .naranja-oscuro { background-color: #e64a19; } /* INCENDIO */
-        .azul { background-color: #1976d2; } /* ACCIDENTE */
+        /* Estilos de Botones de Alerta */
+        .btn-alerta { width: 100%; padding: 20px; margin: 12px 0; border: none; border-radius: 12px; color: white; font-weight: bold; font-size: 19px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .btn-alerta:active { transform: scale(0.96); }
+        
+        .rojo { background-color: #e74c3c; height: 110px; font-size: 26px; border: 3px solid #c0392b; } /* AUXILIO */
+        .naranja { background-color: #e67e22; } /* ROBO */
+        .amarillo { background-color: #f1c40f; color: #2c3e50; } /* SOSPECHOSO */
+        .naranja-oscuro { background-color: #d35400; } /* INCENDIO */
+        .azul { background-color: #2980b9; } /* ACCIDENTE */
         
         .oculto { display: none; }
-        .success { color: green; font-weight: bold; }
+        .link-cambio { margin-top: 20px; color: #3498db; cursor: pointer; text-decoration: underline; display: block; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h2>🛡️ SafeQuito</h2>
+    <p class="subtitle">Seguridad Comunitaria Inteligente</p>
 
     <div id="seccion-registro">
-        <h3>Registro de Vecino</h3>
-        <input type="text" id="reg-cedula" placeholder="Cédula">
-        <input type="text" id="reg-nombres" placeholder="Nombres y Apellidos">
-        <input type="email" id="reg-correo" placeholder="Correo electrónico">
-        <input type="tel" id="reg-celular" placeholder="Celular">
+        <h3>Crear Cuenta de Vecino</h3>
+        <input type="text" id="reg-cedula" placeholder="Número de Cédula">
+        <input type="text" id="reg-nombres" placeholder="Nombres">
+        <input type="text" id="reg-apellidos" placeholder="Apellidos">
+        <input type="email" id="reg-correo" placeholder="Correo Electrónico">
+        <input type="tel" id="reg-celular" placeholder="Número de Celular">
         <input type="password" id="reg-pass" placeholder="Crear Contraseña">
-        <button onclick="registrar()">Registrarse</button>
-        <p>¿Ya tienes cuenta? <a href="#" onclick="mostrarLogin()">Inicia Sesión</a></p>
+        <button class="principal" onclick="registrar()">REGISTRARME</button>
+        <span class="link-cambio" onclick="mostrarLogin()">¿Ya tienes cuenta? Inicia Sesión</span>
     </div>
 
     <div id="seccion-login" class="oculto">
-        <h3>Iniciar Sesión</h3>
-        <input type="text" id="login-cedula" placeholder="Cédula">
-        <input type="password" id="login-pass" placeholder="Contraseña">
-        <button onclick="login()">Entrar</button>
+        <h3>Acceso Seguro</h3>
+        <input type="text" id="login-cedula" placeholder="Tu Cédula">
+        <input type="password" id="login-pass" placeholder="Tu Contraseña">
+        <button class="principal" style="background-color: #3498db;" onclick="login()">ENTRAR</button>
+        <span class="link-cambio" onclick="mostrarRegistro()">¿No tienes cuenta? Regístrate</span>
     </div>
 
     <div id="seccion-botones" class="oculto">
-        <p id="bienvenida"></p>
-        <button class="btn-alerta rojo" onclick="enviarAlerta('AUXILIO')">🚨 AUXILIO</button>
-        <button class="btn-alerta naranja" onclick="enviarAlerta('ROBO')">🔫 ROBO</button>
-        <button class="btn-alerta amarillo" onclick="enviarAlerta('SOSPECHOSO')">👤 PERSONA SOSPECHOSA</button>
+        <h3 id="bienvenida"></h3>
+        <button class="btn-alerta rojo" onclick="enviarAlerta('AUXILIO')">🚨 AUXILIO CRÍTICO</button>
+        <button class="btn-alerta naranja" onclick="enviarAlerta('ROBO')">🔫 ROBO / ASALTO</button>
+        <button class="btn-alerta amarillo" onclick="enviarAlerta('SOSPECHOSO')">👤 SOSPECHOSO</button>
         <button class="btn-alerta naranja-oscuro" onclick="enviarAlerta('INCENDIO')">🔥 INCENDIO</button>
-        <button class="btn-alerta azul" onclick="enviarAlerta('ACCIDENTE')">🚑 ACCIDENTE</button>
-        <br><br>
-        <button onclick="cerrarSesion()">Cerrar Sesión</button>
+        <button class="btn-alerta azul" onclick="enviarAlerta('ACCIDENTE')">🚑 ACCIDENTE VIAL</button>
+        <hr>
+        <button onclick="location.reload()" style="background:none; border:none; color:gray; cursor:pointer;">Cerrar Sesión</button>
     </div>
 </div>
 
 <script>
-    const API_URL = "TU_URL_DE_RENDER/api/v1"; // Reemplázalo por tu link de Render
+    const API_URL = "https://servidor-safe-quito.onrender.com/api/v1"; 
+    let usuarioCedula = "";
 
     function mostrarLogin() {
         document.getElementById('seccion-registro').classList.add('oculto');
         document.getElementById('seccion-login').classList.remove('oculto');
     }
 
-    // Aquí irán las funciones de registrar(), login() y enviarAlerta()
-    // que conectaremos con tu servidor de Render.
+    function mostrarRegistro() {
+        document.getElementById('seccion-login').classList.add('oculto');
+        document.getElementById('seccion-registro').classList.remove('oculto');
+    }
+
+    async function registrar() {
+        const datos = {
+            cedula: document.getElementById('reg-cedula').value,
+            nombres: document.getElementById('reg-nombres').value,
+            apellidos: document.getElementById('reg-apellidos').value,
+            correo: document.getElementById('reg-correo').value,
+            celular: document.getElementById('reg-celular').value,
+            password: document.getElementById('reg-pass').value
+        };
+
+        try {
+            const res = await fetch(`${API_URL}/registrar`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(datos)
+            });
+            const result = await res.json();
+            if (result.status === "ok") {
+                alert("Registro exitoso. ¡Bienvenido al sistema!");
+                mostrarLogin();
+            } else { alert("Error: " + result.msj); }
+        } catch (e) { alert("Error de conexión con el servidor"); }
+    }
+
+    async function login() {
+        const cedula = document.getElementById('login-cedula').value;
+        const pass = document.getElementById('login-pass').value;
+
+        try {
+            const res = await fetch(`${API_URL}/login`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({cedula: cedula, password: pass})
+            });
+            const result = await res.json();
+            if (result.status === "ok") {
+                usuarioCedula = cedula;
+                document.getElementById('seccion-login').classList.add('oculto');
+                document.getElementById('seccion-botones').classList.remove('oculto');
+                document.getElementById('bienvenida').innerText = "Hola, " + result.nombre;
+            } else { alert("Datos incorrectos"); }
+        } catch (e) { alert("Error al conectar"); }
+    }
+
+    function enviarAlerta(tipo) {
+        if (!navigator.geolocation) return alert("Activa el GPS");
+
+        navigator.geolocation.getCurrentPosition(async (pos) => {
+            const gps = `${pos.coords.latitude}, ${pos.coords.longitude}`;
+            try {
+                const res = await fetch(`${API_URL}/reportar`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({cedula: usuarioCedula, tipo: tipo, gps: gps})
+                });
+                if (res.ok) alert("✅ Alerta de " + tipo + " enviada correctamente.");
+            } catch (e) { alert("Fallo al enviar alerta"); }
+        });
+    }
 </script>
 
 </body>
