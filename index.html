@@ -3,88 +3,72 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SafeQuito - Alerta Barrial 🛡️</title>
+    <title>SafeQuito - Seguridad Barrial</title>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; background-color: #f0f2f5; padding: 20px; }
-        .container { max-width: 400px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        h1 { color: #d9534f; }
-        p { color: #555; }
-        .btn-panic {
-            background-color: #d9534f; color: white; border: none; padding: 20px 40px;
-            font-size: 20px; font-weight: bold; border-radius: 50%; cursor: pointer;
-            box-shadow: 0 0 15px rgba(217, 83, 79, 0.6); transition: 0.3s; width: 150px; height: 150px;
-        }
-        .btn-panic:active { transform: scale(0.9); background-color: #c9302c; }
-        #status { margin-top: 20px; font-weight: bold; padding: 10px; border-radius: 5px; display: none; }
-        .success { background-color: #dff0d8; color: #3c763d; display: block !important; }
-        .error { background-color: #f2dede; color: #a94442; display: block !important; }
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #f4f4f4; padding: 20px; }
+        .container { max-width: 400px; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h2 { color: #333; }
+        input { width: 90%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; }
+        
+        /* Botones de Alerta */
+        .btn-alerta { width: 100%; padding: 20px; margin: 10px 0; border: none; border-radius: 10px; color: white; font-weight: bold; font-size: 18px; cursor: pointer; transition: 0.3s; }
+        .btn-alerta:active { transform: scale(0.95); }
+        
+        .rojo { background-color: #d32f2f; height: 100px; font-size: 24px; } /* AUXILIO */
+        .naranja { background-color: #f57c00; } /* ROBO */
+        .amarillo { background-color: #fbc02d; color: #333; } /* SOSPECHOSO */
+        .naranja-oscuro { background-color: #e64a19; } /* INCENDIO */
+        .azul { background-color: #1976d2; } /* ACCIDENTE */
+        
+        .oculto { display: none; }
+        .success { color: green; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>SafeQuito 🛡️</h1>
-    <p>Presiona el botón en caso de emergencia en el barrio.</p>
-    
-    <button class="btn-panic" onclick="enviarAlerta()">🚨<br>ALERTA</button>
+    <h2>🛡️ SafeQuito</h2>
 
-    <div id="status"></div>
+    <div id="seccion-registro">
+        <h3>Registro de Vecino</h3>
+        <input type="text" id="reg-cedula" placeholder="Cédula">
+        <input type="text" id="reg-nombres" placeholder="Nombres y Apellidos">
+        <input type="email" id="reg-correo" placeholder="Correo electrónico">
+        <input type="tel" id="reg-celular" placeholder="Celular">
+        <input type="password" id="reg-pass" placeholder="Crear Contraseña">
+        <button onclick="registrar()">Registrarse</button>
+        <p>¿Ya tienes cuenta? <a href="#" onclick="mostrarLogin()">Inicia Sesión</a></p>
+    </div>
+
+    <div id="seccion-login" class="oculto">
+        <h3>Iniciar Sesión</h3>
+        <input type="text" id="login-cedula" placeholder="Cédula">
+        <input type="password" id="login-pass" placeholder="Contraseña">
+        <button onclick="login()">Entrar</button>
+    </div>
+
+    <div id="seccion-botones" class="oculto">
+        <p id="bienvenida"></p>
+        <button class="btn-alerta rojo" onclick="enviarAlerta('AUXILIO')">🚨 AUXILIO</button>
+        <button class="btn-alerta naranja" onclick="enviarAlerta('ROBO')">🔫 ROBO</button>
+        <button class="btn-alerta amarillo" onclick="enviarAlerta('SOSPECHOSO')">👤 PERSONA SOSPECHOSA</button>
+        <button class="btn-alerta naranja-oscuro" onclick="enviarAlerta('INCENDIO')">🔥 INCENDIO</button>
+        <button class="btn-alerta azul" onclick="enviarAlerta('ACCIDENTE')">🚑 ACCIDENTE</button>
+        <br><br>
+        <button onclick="cerrarSesion()">Cerrar Sesión</button>
+    </div>
 </div>
 
 <script>
-    // --- ESTA ES LA URL DE TU SERVIDOR EN RENDER ---
-    const API_URL = "https://servidor-safe-quito.onrender.com/api/v1/reportar";
+    const API_URL = "TU_URL_DE_RENDER/api/v1"; // Reemplázalo por tu link de Render
 
-    function enviarAlerta() {
-        const statusDiv = document.getElementById('status');
-        statusDiv.innerText = "📍 Obteniendo ubicación...";
-        statusDiv.className = "";
-
-        if (!navigator.geolocation) {
-            statusDiv.innerText = "❌ Tu navegador no soporta GPS.";
-            statusDiv.className = "error";
-            return;
-        }
-
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                const lat = pos.coords.latitude;
-                const lon = pos.coords.longitude;
-                const gpsString = `${lat},${lon}`;
-
-                statusDiv.innerText = "📡 Enviando alerta a la nube...";
-
-                fetch(API_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        cedula_vecino: "Vecino-Quito",
-                        gps: gpsString,
-                        direccion: "Alerta desde Celular"
-                    })
-                })
-                .then(response => {
-                    if (response.ok) {
-                        statusDiv.innerText = "✅ ¡ALERTA ENVIADA CON ÉXITO! La ayuda está en camino.";
-                        statusDiv.className = "success";
-                        // Vibración del celular (si el dispositivo lo permite)
-                        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-                    } else {
-                        throw new Error("Error en el servidor");
-                    }
-                })
-                .catch(error => {
-                    statusDiv.innerText = "❌ Error en el servidor Render. Revisa tus Logs.";
-                    statusDiv.className = "error";
-                    console.error(error);
-                });
-            },
-            (err) => {
-                statusDiv.innerText = "❌ Error: Debes activar el GPS y dar permiso.";
-                statusDiv.className = "error";
-            }
-        );
+    function mostrarLogin() {
+        document.getElementById('seccion-registro').classList.add('oculto');
+        document.getElementById('seccion-login').classList.remove('oculto');
     }
+
+    // Aquí irán las funciones de registrar(), login() y enviarAlerta()
+    // que conectaremos con tu servidor de Render.
 </script>
 
 </body>
