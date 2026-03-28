@@ -58,13 +58,14 @@
             transition: 0.3s;
         }
 
+        /* DISEÑO LEGAL SOLICITADO */
         .legal-container {
             text-align: left; 
             margin: 15px 0; 
-            padding: 12px; 
-            background: #f0f4f8; 
+            padding: 15px; 
+            background: #eef2f7; 
             border-radius: 10px; 
-            border: 1px solid #d1d8e0;
+            border-left: 5px solid #1e3c72;
         }
 
         .legal-label {
@@ -110,31 +111,31 @@
     <p class="subtitle">Comunidad Organizada</p>
 
     <div id="seccion-login">
-        <input type="text" id="login-cedula" placeholder="Tu Cédula">
+        <input type="text" id="login-cedula" placeholder="Tu Cédula" maxlength="10">
         <input type="password" id="login-pass" placeholder="Tu Contraseña">
         <button class="principal" onclick="login()">INGRESAR</button>
         <div class="footer-links">
-            <span class="link-cambio" onclick="mostrarRegistro()">¿No tienes cuenta? Regístrate aquí</span>
+            <span class="link-cambio" onclick="mostrarRegistro()">¿Eres nuevo? Regístrate aquí</span>
         </div>
     </div>
 
     <div id="seccion-registro" class="oculto">
-        <h3 style="color: #27ae60; margin-top:0;">Nuevo Registro</h3>
-        <input type="text" id="reg-cedula" placeholder="Número de Cédula">
-        <input type="text" id="reg-nombres" placeholder="Tus Nombres">
-        <input type="text" id="reg-apellidos" placeholder="Tus Apellidos">
+        <h3 style="color: #27ae60; margin-top:0;">Nuevo Vecino</h3>
+        <input type="text" id="reg-cedula" placeholder="Cédula (10 dígitos)" maxlength="10">
+        <input type="text" id="reg-nombres" placeholder="Nombres">
+        <input type="text" id="reg-apellidos" placeholder="Apellidos">
         <input type="email" id="reg-correo" placeholder="Correo electrónico">
         <input type="tel" id="reg-celular" placeholder="Número Celular">
-        <input type="password" id="reg-pass" placeholder="Crea una Contraseña">
+        <input type="password" id="reg-pass" placeholder="Crear Contraseña">
         
         <div class="legal-container">
             <label class="legal-label">
                 <input type="checkbox" id="reg-legal">
-                <span>Acepto los <b>términos y condiciones conforme a la ley</b>. Mis datos personales y ubicación GPS serán usados exclusivamente para fines de seguridad comunitaria.</span>
+                <span>Al marcar esta casilla, declaro que <b>acepto los términos y condiciones de uso</b>. Así como autorizo el tratamiento de mis datos personales y ubicación geográfica (GPS) conforme a la ley de Ecuador, con el fin exclusivo de gestionar alertas de seguridad y auxilio comunitario.</span>
             </label>
         </div>
 
-        <button class="principal" style="background: #27ae60;" onclick="registrar()">CREAR MI CUENTA</button>
+        <button class="principal" style="background: #27ae60;" onclick="registrar()">CREAR CUENTA</button>
         <div class="footer-links">
             <span class="link-cambio" onclick="mostrarLogin()">Ya tengo cuenta, volver</span>
         </div>
@@ -182,14 +183,15 @@
                 document.getElementById('seccion-login').classList.add('oculto');
                 document.getElementById('seccion-botones').classList.remove('oculto');
                 document.getElementById('bienvenida').innerText = "Hola, " + result.nombre;
-            } else { alert("Cédula o clave incorrecta"); }
-        } catch (e) { alert("Error al conectar con SafeQuito"); }
+            } else { alert("Datos incorrectos"); }
+        } catch (e) { alert("Error de conexión"); }
     }
 
     async function registrar() {
         if (!document.getElementById('reg-legal').checked) {
-            return alert("Para continuar, debes marcar la casilla de aceptación de términos y condiciones legales.");
+            return alert("Debes aceptar los términos y condiciones para continuar.");
         }
+        
         const datos = {
             cedula: document.getElementById('reg-cedula').value,
             nombres: document.getElementById('reg-nombres').value,
@@ -198,6 +200,9 @@
             celular: document.getElementById('reg-celular').value,
             password: document.getElementById('reg-pass').value
         };
+
+        if(datos.cedula.length !== 10) return alert("La cédula debe tener 10 dígitos.");
+
         try {
             const res = await fetch(`${API_URL}/registrar`, {
                 method: 'POST',
@@ -206,14 +211,14 @@
             });
             const result = await res.json();
             if (result.status === "ok") {
-                alert("¡Registro exitoso! Ya puedes ingresar.");
+                alert("¡Registro exitoso! Bienvenido al sistema.");
                 mostrarLogin();
             } else { alert("Error: " + result.msj); }
-        } catch (e) { alert("Error en el registro."); }
+        } catch (e) { alert("Error al registrar vecino."); }
     }
 
     function enviarAlerta(tipo) {
-        if (!navigator.geolocation) return alert("Por favor activa el GPS.");
+        if (!navigator.geolocation) return alert("Activa el GPS.");
         navigator.geolocation.getCurrentPosition(async (pos) => {
             const gps = `${pos.coords.latitude}, ${pos.coords.longitude}`;
             try {
@@ -222,9 +227,9 @@
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({cedula: usuarioCedula, tipo: tipo, gps: gps})
                 });
-                if (res.ok) alert("✅ Alerta de " + tipo + " enviada al barrio.");
+                if (res.ok) alert("✅ Alerta de " + tipo + " enviada.");
             } catch (e) { alert("Error al enviar reporte."); }
-        }, () => alert("Debes permitir el GPS para enviar alertas de emergencia."));
+        }, () => alert("Se requiere GPS para enviar la alerta."));
     }
 </script>
 </body>
