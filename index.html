@@ -2,11 +2,15 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SafeQuito - Seguridad Comunitaria</title>
+    <meta name="theme-color" content="#1e3c72">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
     <style>
         body { 
-            font-family: 'Segoe UI', sans-serif; 
+            font-family: 'Segoe UI', Roboto, sans-serif; 
             margin: 0; 
             display: flex; 
             align-items: center; 
@@ -15,11 +19,12 @@
             background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
             background-attachment: fixed;
             padding: 20px 0;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .container { 
-            width: 95%; 
-            max-width: 420px; 
+            width: 90%; 
+            max-width: 400px; 
             background: rgba(255, 255, 255, 0.98); 
             padding: 25px; 
             border-radius: 25px; 
@@ -27,15 +32,20 @@
             text-align: center; 
         }
 
-        input, select { 
+        h2 { color: #1e3c72; margin-bottom: 20px; font-size: 28px; }
+
+        input { 
             width: 100%; 
-            padding: 12px; 
-            margin: 6px 0; 
-            border: 1px solid #ccc; 
-            border-radius: 10px; 
+            padding: 14px; 
+            margin: 8px 0; 
+            border: 1.5px solid #ddd; 
+            border-radius: 12px; 
             box-sizing: border-box; 
-            font-size: 15px; 
+            font-size: 16px; 
+            transition: 0.3s;
         }
+
+        input:focus { border-color: #1e3c72; outline: none; box-shadow: 0 0 8px rgba(30,60,114,0.2); }
 
         .row { display: flex; gap: 10px; }
 
@@ -49,187 +59,41 @@
             font-size: 18px; 
             font-weight: bold; 
             cursor: pointer; 
-            margin-top: 10px; 
+            margin-top: 15px; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
         }
 
-        /* DISEÑO DE ALERTAS */
+        /* BOTONES DE ALERTA */
         .btn-alerta { 
             width: 100%; 
-            padding: 16px; 
-            margin: 8px 0; 
+            padding: 18px; 
+            margin: 10px 0; 
             border: none; 
-            border-radius: 15px; 
+            border-radius: 18px; 
             color: white; 
             font-weight: bold; 
-            font-size: 16px; 
+            font-size: 17px; 
             cursor: pointer; 
-            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: transform 0.1s;
         }
 
-        /* BOTÓN DE AUXILIO EXTRA GRANDE Y PULSANTE */
+        .btn-alerta:active { transform: scale(0.96); }
+
+        /* BOTÓN AUXILIO EXTRA GRANDE */
         .btn-auxilio { 
             background: #d63031; 
-            height: 110px; 
-            font-size: 24px !important; 
-            border-bottom: 6px solid #b71c1c; 
-            margin-bottom: 20px;
-            animation: pulso-rojo 2s infinite;
+            min-height: 120px; 
+            font-size: 26px !important; 
+            border-bottom: 8px solid #b71c1c; 
+            margin-bottom: 25px;
+            animation: pulso-rojo 1.5s infinite;
         }
 
         @keyframes pulso-rojo {
             0% { box-shadow: 0 0 0 0 rgba(214, 48, 49, 0.7); }
             70% { box-shadow: 0 0 0 20px rgba(214, 48, 49, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(214, 48, 49, 0); }
-        }
-
-        .btn-robo { background: #e67e22; }
-        .btn-sospechoso { background: #f1c40f; color: #2c3e50; }
-        .btn-incendio { background: #d35400; }
-        .btn-accidente { background: #2980b9; }
-
-        .legal-container { text-align: left; margin: 10px 0; padding: 10px; background: #eef2f7; border-radius: 8px; border-left: 5px solid #1e3c72; font-size: 11px; }
-        .oculto { display: none; }
-        .link-cambio { color: #1e3c72; cursor: pointer; font-weight: 600; font-size: 13px; text-decoration: underline; }
-    </style>
-</head>
-<body>
-
-<div class="container">
-    <h2>🛡️ SafeQuito</h2>
-
-    <div id="seccion-login">
-        <input type="text" id="login-cedula" placeholder="Cédula" maxlength="10">
-        <input type="password" id="login-pass" placeholder="Contraseña">
-        <button class="principal" onclick="login()">INGRESAR</button>
-        <div style="margin-top:15px;"><span class="link-cambio" onclick="mostrarRegistro()">¿Eres nuevo? Regístrate aquí</span></div>
-    </div>
-
-    <div id="seccion-registro" class="oculto">
-        <h3 style="color: #27ae60; margin:0 0 10px 0;">Registro de Vecino</h3>
-        <input type="text" id="reg-cedula" placeholder="Cédula (10 dígitos)" maxlength="10">
-        <div class="row">
-            <input type="text" id="reg-nombres" placeholder="Nombres">
-            <input type="text" id="reg-apellidos" placeholder="Apellidos">
-        </div>
-        <input type="email" id="reg-correo" placeholder="Correo electrónico">
-        <input type="tel" id="reg-celular" placeholder="Número Celular">
-        
-        <p style="text-align:left; font-size:12px; font-weight:bold; margin:10px 0 2px 0; color:#1e3c72;">UBICACIÓN:</p>
-        <input type="text" id="reg-barrio" placeholder="Barrio / Sector">
-        <input type="text" id="reg-principal" placeholder="Calle Principal">
-        <div class="row">
-            <input type="text" id="reg-secundaria" placeholder="Calle Secundaria">
-            <input type="text" id="reg-casa" placeholder="N° Casa / Lote" style="width:120px;">
-        </div>
-        
-        <input type="password" id="reg-pass" placeholder="Crear Contraseña">
-        
-        <div class="legal-container">
-            <label style="display:flex; align-items:center; cursor:pointer;">
-                <input type="checkbox" id="reg-legal" style="width:20px; margin-right:10px;">
-                <span>Acepto términos y autorizo uso de datos y GPS para seguridad comunitaria conforme a la ley de Ecuador.</span>
-            </label>
-        </div>
-
-        <button class="principal" style="background: #27ae60;" onclick="registrar()">REGISTRARME</button>
-        <div style="margin-top:10px;"><span class="link-cambio" onclick="mostrarLogin()">Volver al ingreso</span></div>
-    </div>
-
-    <div id="seccion-botones" class="oculto">
-        <h3 id="bienvenida" style="color:#1e3c72; margin:0 0 10px 0;"></h3>
-        
-        <button class="btn-alerta btn-auxilio" onclick="enviarAlerta('AUXILIO')">🚨 AUXILIO EMERGENCIA</button>
-        
-        <button class="btn-alerta btn-robo" onclick="enviarAlerta('ROBO')">🔫 ROBO</button>
-        <button class="btn-alerta btn-sospechoso" onclick="enviarAlerta('SOSPECHOSO')">👤 PERSONA / AUTO SOSPECHOSO</button>
-        <button class="btn-alerta btn-incendio" onclick="enviarAlerta('INCENDIO')">🔥 INCENDIO</button>
-        <button class="btn-alerta btn-accidente" onclick="enviarAlerta('ACCIDENTE')">🚑 ACCIDENTE</button>
-        
-        <div style="margin-top:20px; border-top:1px solid #eee; padding-top:10px;">
-            <button onclick="location.reload()" style="background:none; border:none; color:gray; cursor:pointer;">Cerrar Sesión</button>
-        </div>
-    </div>
-</div>
-
-<script>
-    const API_URL = "https://servidor-safe-quito.onrender.com/api/v1"; 
-    let usuarioCedula = "";
-
-    function mostrarLogin() { document.getElementById('seccion-registro').classList.add('oculto'); document.getElementById('seccion-login').classList.remove('oculto'); }
-    function mostrarRegistro() { document.getElementById('seccion-login').classList.add('oculto'); document.getElementById('seccion-registro').classList.remove('oculto'); }
-
-    async function login() {
-        const btn = document.querySelector("#seccion-login .principal");
-        const cedula = document.getElementById('login-cedula').value;
-        const pass = document.getElementById('login-pass').value;
-        if(!cedula || !pass) return alert("Llena tus datos.");
-        btn.innerText = "⏳ INGRESANDO..."; btn.disabled = true;
-        try {
-            const res = await fetch(`${API_URL}/login`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({cedula, password: pass}) });
-            const result = await res.json();
-            if (result.status === "ok") {
-                usuarioCedula = cedula;
-                document.getElementById('seccion-login').classList.add('oculto');
-                document.getElementById('seccion-botones').classList.remove('oculto');
-                document.getElementById('bienvenida').innerText = "Hola, " + result.nombre;
-            } else { alert("Datos incorrectos."); }
-        } catch (e) { alert("Servidor despertando... reintenta en 10 seg."); } finally { btn.innerText = "INGRESAR"; btn.disabled = false; }
-    }
-
-    async function registrar() {
-        if (!document.getElementById('reg-legal').checked) return alert("Acepta los términos.");
-        const datos = {
-            cedula: document.getElementById('reg-cedula').value,
-            nombres: document.getElementById('reg-nombres').value,
-            apellidos: document.getElementById('reg-apellidos').value,
-            correo: document.getElementById('reg-correo').value,
-            celular: document.getElementById('reg-celular').value,
-            barrio: document.getElementById('reg-barrio').value,
-            calle_principal: document.getElementById('reg-principal').value,
-            calle_secundaria: document.getElementById('reg-secundaria').value,
-            numero_casa: document.getElementById('reg-casa').value,
-            password: document.getElementById('reg-pass').value
-        };
-        if(datos.cedula.length !== 10) return alert("Cédula inválida.");
-        try {
-            const res = await fetch(`${API_URL}/registrar`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(datos) });
-            const result = await res.json();
-            if (result.status === "ok") { alert("¡Bienvenido! Ya puedes ingresar."); mostrarLogin(); }
-            else { alert("Error: " + result.msj); }
-        } catch (e) { alert("Error al conectar."); }
-    }
-
- function enviarAlerta(tipo) {
-        // 1. Confirmación de Seguridad
-        const mensajeConfirmacion = `¿Estás seguro de enviar una alerta de ${tipo}?`;
-        if (!confirm(mensajeConfirmacion)) {
-            return; // Si el vecino cancela, no pasa nada
-        }
-
-        // 2. Verificación de GPS
-        if (!navigator.geolocation) {
-            return alert("Error: Tu celular no permite el acceso al GPS.");
-        }
-
-        // 3. Obtención de ubicación y envío
-        navigator.geolocation.getCurrentPosition(async (pos) => {
-            const gps = `${pos.coords.latitude}, ${pos.coords.longitude}`;
-            try {
-                const res = await fetch(`${API_URL}/reportar`, { 
-                    method: 'POST', 
-                    headers: {'Content-Type': 'application/json'}, 
-                    body: JSON.stringify({cedula: usuarioCedula, tipo, gps}) 
-                });
-                
-                if (res.ok) {
-                    alert("✅ Alerta de " + tipo + " enviada. Los dirigentes han sido notificados.");
-                } else {
-                    alert("⚠️ Error al procesar la alerta. Intenta de nuevo.");
-                }
-            } catch (e) {
-                alert("❌ Error de conexión con el servidor.");
-            }
-        }, () => {
-            alert("No se pudo obtener tu ubicación. Por favor, activa el GPS.");
-        }, { enableHighAccuracy: true });
-    }
+            100% { box-shadow: 0 0 0 0
