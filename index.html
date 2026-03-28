@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SafeQuito 2026</title>
+    
+    <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="./Gemini_Generated_Image_n3qdbn3qdbn3qdbn.png">
+
     <style>
         body { 
             font-family: 'Segoe UI', sans-serif; 
@@ -78,22 +82,14 @@
         }
 
         .btn-robo { background: #e67e22; }
-        .btn-sospechoso { background: #f1c40f; color: #2c3e50; }
-        .btn-incendio { background: #d35400; }
-        .btn-accidente { background: #2980b9; }
+        
+        /* ESTILOS PARA GESTIÓN */
+        .panel-gestion { margin-top: 25px; border-top: 2px solid #eee; padding-top: 15px; text-align: left; }
+        .card-reporte { background: #f8f9fa; padding: 12px; border-radius: 10px; margin-bottom: 8px; border-left: 4px solid #1e3c72; font-size: 13px; }
+        .status-badge { font-weight: bold; color: #d63031; }
+        .btn-accion { padding: 4px 8px; margin: 2px; border-radius: 5px; border: none; color: white; cursor: pointer; font-size: 11px; }
 
-        .btn-logout {
-            background: #f1f2f6;
-            border: 1px solid #ccc;
-            color: #555;
-            padding: 10px;
-            border-radius: 10px;
-            margin-top: 25px;
-            cursor: pointer;
-            width: 100%;
-            font-weight: bold;
-        }
-
+        .btn-logout { background: #f1f2f6; border: 1px solid #ccc; color: #555; padding: 10px; border-radius: 10px; margin-top: 25px; cursor: pointer; width: 100%; font-weight: bold; }
         .oculto { display: none; }
         .link { color: #1e3c72; cursor: pointer; display: block; margin-top: 15px; font-weight: bold; text-decoration: underline; }
     </style>
@@ -120,7 +116,7 @@
         <input type="email" id="reg-correo" placeholder="Correo Electrónico">
         <input type="tel" id="reg-celular" placeholder="Número Celular">
         
-        <p style="text-align:left; font-size:12px; margin:10px 0 0 5px; color:#1e3c72; font-weight:bold;">Ubicación en el Barrio:</p>
+        <p style="text-align:left; font-size:12px; margin:10px 0 0 5px; color:#1e3c72; font-weight:bold;">Ubicación:</p>
         <input type="text" id="reg-barrio" placeholder="Barrio / Sector">
         <input type="text" id="reg-principal" placeholder="Calle Principal">
         <div class="row">
@@ -135,11 +131,20 @@
 
     <div id="seccion-botones" class="oculto">
         <h3 id="bienvenida"></h3>
+        
         <button class="btn-alerta btn-auxilio" onclick="enviarAlerta('AUXILIO EMERGENCIA')">🚨 AUXILIO</button>
         <button class="btn-alerta btn-robo" onclick="enviarAlerta('ROBO')">🔫 ROBO</button>
-        <button class="btn-alerta btn-sospechoso" onclick="enviarAlerta('SOSPECHOSO')">👤 SOSPECHOSO</button>
-        <button class="btn-alerta btn-incendio" onclick="enviarAlerta('INCENDIO')">🔥 INCENDIO</button>
-        <button class="btn-alerta btn-accidente" onclick="enviarAlerta('ACCIDENTE')">🚑 ACCIDENTE</button>
+        
+        <div id="panel-gestion" class="panel-gestion oculto">
+            <h4>📋 Control de Emergencias</h4>
+            <div id="lista-reportes">Cargando reportes...</div>
+        </div>
+
+        <div id="panel-admin" class="panel-gestion oculto">
+            <h4 style="color:red">⚙️ Admin: Resetear Usuario</h4>
+            <input type="text" id="input-borrar" placeholder="Cédula a eliminar">
+            <button class="principal" style="background:#c0392b" onclick="eliminarUsuario()">BORRAR REGISTRO</button>
+        </div>
         
         <button class="btn-logout" onclick="cerrarSesion()">Cerrar Sesión Segura</button>
     </div>
@@ -148,12 +153,27 @@
 <script>
     const API_URL = "https://servidor-safe-quito.onrender.com/api/v1";
     let cedulaGlobal = "";
+    let rolGlobal = "";
+
+    // AUTO-LOGIN AL CARGAR
+    window.onload = function() {
+        const savedCedula = localStorage.getItem('safe_cedula');
+        const savedNombre = localStorage.getItem('safe_nombre');
+        const savedRol = localStorage.getItem('safe_rol');
+
+        if (savedCedula && savedNombre) {
+            cedulaGlobal = savedCedula;
+            rolGlobal = savedRol;
+            lanzarApp(savedNombre, savedRol);
+        }
+    };
 
     function mostrarRegistro() { document.getElementById('seccion-login').classList.add('oculto'); document.getElementById('seccion-registro').classList.remove('oculto'); }
     function mostrarLogin() { document.getElementById('seccion-registro').classList.add('oculto'); document.getElementById('seccion-login').classList.remove('oculto'); }
     
     function cerrarSesion() {
         if(confirm("¿Deseas cerrar tu sesión?")) {
+            localStorage.clear();
             location.reload();
         }
     }
@@ -170,11 +190,69 @@
             const data = await res.json();
             if (data.status === "ok") {
                 cedulaGlobal = cedula;
-                document.getElementById('seccion-login').classList.add('oculto');
-                document.getElementById('seccion-botones').classList.remove('oculto');
-                document.getElementById('bienvenida').innerText = "Hola, " + data.nombre;
+                rolGlobal = data.rol;
+                localStorage.setItem('safe_cedula', cedula);
+                localStorage.setItem('safe_nombre', data.nombre);
+                localStorage.setItem('safe_rol', data.rol);
+                lanzarApp(data.nombre, data.rol);
             } else { alert("Cédula o clave incorrectas"); }
-        } catch (e) { alert("Error al conectar con el servidor"); }
+        } catch (e) { alert("Error al conectar"); }
+    }
+
+    function lanzarApp(nombre, rol) {
+        document.getElementById('seccion-login').classList.add('oculto');
+        document.getElementById('seccion-botones').classList.remove('oculto');
+        document.getElementById('bienvenida').innerText = `Hola, ${nombre}`;
+
+        if (rol === 'admin' || rol === 'dirigente' || rol === 'policia') {
+            document.getElementById('panel-gestion').classList.remove('oculto');
+            cargarReportes();
+            setInterval(cargarReportes, 20000); // Auto-actualizar cada 20 seg
+        }
+        if (rol === 'admin') {
+            document.getElementById('panel-admin').classList.remove('oculto');
+        }
+    }
+
+    async function cargarReportes() {
+        try {
+            const res = await fetch(`${API_URL}/reportes`, {
+                headers: { 'X-Usuario-Cedula': cedulaGlobal }
+            });
+            const reportes = await res.json();
+            let html = "";
+            reportes.forEach(r => {
+                html += `
+                <div class="card-reporte">
+                    <b>${r.tipo_alerta}</b> - <span class="status-badge">${r.estado}</span><br>
+                    <small>${r.nombre_completo} (${r.barrio})</small><br>
+                    <button class="btn-accion" style="background:#2980b9" onclick="cambiarEstado(${r.id}, 'En curso')">Atender</button>
+                    <button class="btn-accion" style="background:#27ae60" onclick="cambiarEstado(${r.id}, 'Atendido')">Finalizar</button>
+                </div>`;
+            });
+            document.getElementById('lista-reportes').innerHTML = html || "Sin alertas pendientes";
+        } catch(e) {}
+    }
+
+    async function cambiarEstado(id, nuevoEstado) {
+        await fetch(`${API_URL}/reportes/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'X-Usuario-Cedula': cedulaGlobal },
+            body: JSON.stringify({ estado: nuevoEstado })
+        });
+        cargarReportes();
+    }
+
+    async function eliminarUsuario() {
+        const objetivo = document.getElementById('input-borrar').value;
+        if (!objetivo || !confirm(`¿Borrar permanentemente al usuario ${objetivo}?`)) return;
+        
+        const res = await fetch(`${API_URL}/usuarios/${objetivo}`, {
+            method: 'DELETE',
+            headers: { 'X-Admin-Cedula': cedulaGlobal }
+        });
+        const data = await res.json();
+        alert(data.msj);
     }
 
     async function registrar() {
@@ -182,7 +260,7 @@
             cedula: document.getElementById('reg-cedula').value,
             nombres: document.getElementById('reg-nombres').value,
             apellidos: document.getElementById('reg-apellidos').value,
-            correo: document.getElementById('reg-correo').value, // Enviando el correo
+            correo: document.getElementById('reg-correo').value,
             celular: document.getElementById('reg-celular').value,
             barrio: document.getElementById('reg-barrio').value,
             calle_principal: document.getElementById('reg-principal').value,
@@ -190,34 +268,28 @@
             numero_casa: document.getElementById('reg-casa').value,
             password: document.getElementById('reg-pass').value
         };
-
         try {
             const res = await fetch(`${API_URL}/registrar`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(datos)
             });
-            if (res.ok) { 
-                alert("¡Registro exitoso!"); 
-                mostrarLogin(); 
-            } else { alert("Error al registrar"); }
+            if (res.ok) { alert("¡Registro exitoso!"); mostrarLogin(); }
         } catch (e) { alert("Error de red"); }
     }
 
     function enviarAlerta(tipo) {
-        if (!confirm(`¿Confirmas el envío de alerta de ${tipo}?`)) return;
-        
+        if (!confirm(`¿Enviar alerta de ${tipo}?`)) return;
         navigator.geolocation.getCurrentPosition(async (pos) => {
             const gps = `${pos.coords.latitude},${pos.coords.longitude}`;
-            try {
-                const res = await fetch(`${API_URL}/reportar`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({cedula: cedulaGlobal, tipo, gps})
-                });
-                if(res.ok) alert("✅ Alerta enviada con éxito.");
-            } catch (e) { alert("Error al reportar"); }
-        }, () => alert("Activa el GPS para enviar"));
+            await fetch(`${API_URL}/reportar`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({cedula: cedulaGlobal, tipo, gps})
+            });
+            alert("✅ Alerta enviada.");
+            if (rolGlobal !== 'vecino') cargarReportes();
+        }, () => alert("Activa el GPS"));
     }
 </script>
 </body>
