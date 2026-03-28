@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SafeQuito - Acceso</title>
+    <title>SafeQuito - Seguridad Comunitaria</title>
     <style>
-        /* FONDO PREDISEÑADO: Degradado moderno de seguridad */
+        /* FONDO Y ESTILOS GENERALES */
         body { 
             font-family: 'Segoe UI', sans-serif; 
             margin: 0; 
@@ -13,22 +13,22 @@
             align-items: center; 
             justify-content: center; 
             min-height: 100vh;
-            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); /* Azul Seguridad */
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
             background-attachment: fixed;
         }
 
         .container { 
             width: 90%; 
             max-width: 400px; 
-            background: rgba(255, 255, 255, 0.95); 
-            padding: 40px 30px; 
+            background: rgba(255, 255, 255, 0.98); 
+            padding: 30px; 
             border-radius: 25px; 
-            box-shadow: 0 15px 35px rgba(0,0,0,0.3); 
+            box-shadow: 0 15px 35px rgba(0,0,0,0.4); 
             text-align: center;
         }
 
         h2 { color: #1e3c72; margin-bottom: 5px; font-size: 28px; }
-        p.subtitle { color: #555; margin-bottom: 30px; font-size: 14px; font-weight: 500; }
+        p.subtitle { color: #555; margin-bottom: 25px; font-size: 14px; font-weight: 500; }
 
         input { 
             width: 100%; 
@@ -38,7 +38,7 @@
             border-radius: 12px; 
             box-sizing: border-box; 
             font-size: 16px;
-            background: #f9f9f9;
+            background: #fdfdfd;
         }
 
         button.principal { 
@@ -55,58 +55,97 @@
             transition: 0.3s;
         }
 
-        button.principal:hover { background: #2a5298; transform: translateY(-2px); }
+        /* ESTILOS DE BOTONES DE ALERTA */
+        .btn-alerta { 
+            width: 100%; 
+            padding: 18px; 
+            margin: 10px 0; 
+            border: none; 
+            border-radius: 15px; 
+            color: white; 
+            font-weight: bold; 
+            font-size: 18px; 
+            cursor: pointer; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            gap: 10px;
+            transition: 0.2s;
+        }
 
-        /* Botones de Alerta */
-        .btn-alerta { width: 100%; padding: 22px; margin: 12px 0; border: none; border-radius: 15px; color: white; font-weight: bold; font-size: 20px; cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-        .rojo { background: #d63031; border-bottom: 5px solid #b71c1c; }
         .naranja { background: #e67e22; }
-        .azul { background: #0984e3; }
+        .amarillo { background: #f1c40f; color: #2c3e50; }
+        .naranja-oscuro { background: #d35400; }
+        .azul { background: #2980b9; }
+        
+        /* BOTÓN AUXILIO ESPECIAL */
+        .rojo { 
+            background: #d63031; 
+            height: 90px; 
+            font-size: 22px; 
+            border-bottom: 5px solid #b71c1c; 
+        }
+
+        .pulsante {
+            animation: pulse-red 2s infinite;
+        }
+
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(214, 48, 49, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(214, 48, 49, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(214, 48, 49, 0); }
+        }
 
         .oculto { display: none; }
-        
-        .footer-links { margin-top: 25px; border-top: 1px solid #eee; padding-top: 20px; }
-        .link-cambio { color: #1e3c72; cursor: pointer; font-weight: 600; text-decoration: none; font-size: 15px; }
+        .footer-links { margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px; }
+        .link-cambio { color: #1e3c72; cursor: pointer; font-weight: 600; font-size: 14px; text-decoration: underline; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h2>🛡️ SafeQuito</h2>
-    <p class="subtitle">Comunidad Protegida</p>
+    <p class="subtitle">Comunidad Organizada</p>
 
     <div id="seccion-login">
-        <input type="text" id="login-cedula" placeholder="Tu Cédula">
-        <input type="password" id="login-pass" placeholder="Tu Contraseña">
+        <input type="text" id="login-cedula" placeholder="Cédula">
+        <input type="password" id="login-pass" placeholder="Contraseña">
         <button class="principal" onclick="login()">INGRESAR</button>
-        
         <div class="footer-links">
-            <span class="link-cambio" onclick="mostrarRegistro()">¿No tienes cuenta? Regístrate aquí</span>
+            <span class="link-cambio" onclick="mostrarRegistro()">¿Eres nuevo? Regístrate aquí</span>
         </div>
     </div>
 
     <div id="seccion-registro" class="oculto">
         <h3>Nuevo Vecino</h3>
-        <input type="text" id="reg-cedula" placeholder="Cédula">
+        <input type="text" id="reg-cedula" placeholder="Número de Cédula">
         <input type="text" id="reg-nombres" placeholder="Nombres">
         <input type="text" id="reg-apellidos" placeholder="Apellidos">
-        <input type="email" id="reg-correo" placeholder="Correo">
+        <input type="email" id="reg-correo" placeholder="Correo electrónico">
         <input type="tel" id="reg-celular" placeholder="Celular">
-        <input type="password" id="reg-pass" placeholder="Contraseña">
+        <input type="password" id="reg-pass" placeholder="Crear Contraseña">
         <button class="principal" style="background: #27ae60;" onclick="registrar()">CREAR CUENTA</button>
-        
         <div class="footer-links">
             <span class="link-cambio" onclick="mostrarLogin()">Ya tengo cuenta, volver</span>
         </div>
     </div>
 
     <div id="seccion-botones" class="oculto">
-        <h3 id="bienvenida" style="color:#1e3c72"></h3>
-        <button class="btn-alerta rojo" onclick="enviarAlerta('AUXILIO')">🚨 AUXILIO</button>
+        <h3 id="bienvenida" style="color:#1e3c72; margin: 0 0 15px 0;"></h3>
+        
         <button class="btn-alerta naranja" onclick="enviarAlerta('ROBO')">🔫 ROBO / ASALTO</button>
+        
+        <button class="btn-alerta amarillo" onclick="enviarAlerta('SOSPECHOSO')">👤 AUTO/PERSONA SOSPECHOSA</button>
+        
+        <button class="btn-alerta naranja-oscuro" onclick="enviarAlerta('INCENDIO')">🔥 INCENDIO</button>
+        
+        <button class="btn-alerta rojo pulsante" onclick="enviarAlerta('AUXILIO')">🚨 AUXILIO / EMERGENCIA</button>
+        
         <button class="btn-alerta azul" onclick="enviarAlerta('ACCIDENTE')">🚑 ACCIDENTE</button>
-        <hr>
-        <button onclick="location.reload()" style="background:none; border:none; color:gray; cursor:pointer;">Salir</button>
+        
+        <div class="footer-links">
+            <button onclick="location.reload()" style="background:none; border:none; color:gray; cursor:pointer;">⬅️ Salir</button>
+        </div>
     </div>
 </div>
 
@@ -140,8 +179,8 @@
                 document.getElementById('seccion-login').classList.add('oculto');
                 document.getElementById('seccion-botones').classList.remove('oculto');
                 document.getElementById('bienvenida').innerText = "Hola, " + result.nombre;
-            } else { alert("Cédula o contraseña incorrecta"); }
-        } catch (e) { alert("Error al conectar con SafeQuito"); }
+            } else { alert("Cédula o clave incorrecta"); }
+        } catch (e) { alert("Error de conexión"); }
     }
 
     async function registrar() {
@@ -161,7 +200,7 @@
         });
         const result = await res.json();
         if (result.status === "ok") {
-            alert("¡Registro exitoso!");
+            alert("¡Registro exitoso! Ya puedes ingresar.");
             mostrarLogin();
         } else { alert("Error: " + result.msj); }
     }
@@ -170,12 +209,14 @@
         if (!navigator.geolocation) return alert("Activa el GPS");
         navigator.geolocation.getCurrentPosition(async (pos) => {
             const gps = `${pos.coords.latitude}, ${pos.coords.longitude}`;
-            const res = await fetch(`${API_URL}/reportar`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({cedula: usuarioCedula, tipo: tipo, gps: gps})
-            });
-            if (res.ok) alert("✅ Alerta enviada.");
+            try {
+                const res = await fetch(`${API_URL}/reportar`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({cedula: usuarioCedula, tipo: tipo, gps: gps})
+                });
+                if (res.ok) alert("✅ Alerta de " + tipo + " enviada al barrio.");
+            } catch (e) { alert("Error al enviar."); }
         });
     }
 </script>
