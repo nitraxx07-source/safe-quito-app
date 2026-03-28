@@ -5,151 +5,68 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SafeQuito - Seguridad Comunitaria</title>
     <style>
-        /* DISEÑO BASE RESPONSIVO */
-        body { 
-            font-family: 'Segoe UI', sans-serif; 
-            margin: 0; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            min-height: 100vh;
-            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-            background-attachment: fixed;
-            padding: 20px 0;
-        }
-
-        .container { 
-            width: 90%; 
-            max-width: 400px; 
-            background: rgba(255, 255, 255, 0.98); 
-            padding: 30px; 
-            border-radius: 25px; 
-            box-shadow: 0 15px 35px rgba(0,0,0,0.4); 
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-        }
-
-        h2 { color: #1e3c72; margin-bottom: 5px; font-size: 26px; }
-        p.subtitle { color: #555; margin-bottom: 20px; font-size: 14px; }
-
-        input { 
-            width: 100%; 
-            padding: 14px; 
-            margin: 8px 0; 
-            border: 1px solid #ccc; 
-            border-radius: 12px; 
-            box-sizing: border-box; 
-            font-size: 16px;
-        }
-
-        button.principal { 
-            width: 100%; 
-            padding: 16px; 
-            background: #1e3c72; 
-            color: white; 
-            border: none; 
-            border-radius: 12px; 
-            font-size: 18px; 
-            font-weight: bold; 
-            cursor: pointer; 
-            margin-top: 15px;
-            transition: 0.3s;
-        }
-
-        button.principal:disabled { background: #7f8c8d; cursor: not-allowed; }
-
-        /* ESTILO LEGAL */
-        .legal-container { 
-            text-align: left; 
-            margin: 15px 0; 
-            padding: 12px; 
-            background: #eef2f7; 
-            border-radius: 10px; 
-            border-left: 5px solid #1e3c72; 
-        }
-        .legal-label { display: flex; align-items: flex-start; cursor: pointer; font-size: 12px; color: #2f3640; line-height: 1.4; }
-        .legal-label input { width: 22px; height: 22px; margin-right: 12px; flex-shrink: 0; }
-        .link-terminos { color: #1e3c72; text-decoration: underline; font-weight: bold; cursor: pointer; }
-
-        /* MODAL (VENTANA EMERGENTE) */
-        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); overflow-y: auto; }
-        .modal-content { background: white; margin: 10% auto; padding: 25px; width: 85%; max-width: 500px; border-radius: 15px; text-align: left; font-size: 14px; line-height: 1.5; }
-        .modal-header { border-bottom: 2px solid #1e3c72; padding-bottom: 10px; margin-bottom: 15px; color: #1e3c72; }
-        .btn-cerrar { background: #1e3c72; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; float: right; margin-top: 10px; }
-
-        /* BOTONES DE ALERTA */
-        .btn-alerta { width: 100%; padding: 18px; margin: 10px 0; border: none; border-radius: 15px; color: white; font-weight: bold; font-size: 17px; cursor: pointer; }
-        .naranja { background: #e67e22; }
-        .amarillo { background: #f1c40f; color: #2c3e50; }
-        .naranja-oscuro { background: #d35400; }
-        .azul { background: #2980b9; }
-        .rojo { background: #d63031; height: 85px; font-size: 20px; border-bottom: 5px solid #b71c1c; }
-
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); background-attachment: fixed; padding: 20px 0; }
+        .container { width: 95%; max-width: 420px; background: rgba(255, 255, 255, 0.98); padding: 25px; border-radius: 25px; box-shadow: 0 15px 35px rgba(0,0,0,0.4); text-align: center; }
+        h2 { color: #1e3c72; margin-bottom: 5px; }
+        input, select { width: 100%; padding: 12px; margin: 6px 0; border: 1px solid #ccc; border-radius: 10px; box-sizing: border-box; font-size: 15px; }
+        .row { display: flex; gap: 10px; } /* Para poner campos juntos */
+        button.principal { width: 100%; padding: 16px; background: #1e3c72; color: white; border: none; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .legal-container { text-align: left; margin: 10px 0; padding: 10px; background: #eef2f7; border-radius: 8px; border-left: 5px solid #1e3c72; font-size: 11px; }
+        .btn-alerta { width: 100%; padding: 18px; margin: 8px 0; border: none; border-radius: 15px; color: white; font-weight: bold; font-size: 17px; cursor: pointer; }
+        .rojo { background: #d63031; height: 80px; border-bottom: 5px solid #b71c1c; }
         .oculto { display: none; }
-        .footer-links { margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px; }
-        .link-cambio { color: #1e3c72; cursor: pointer; font-weight: 600; font-size: 14px; text-decoration: underline; }
+        .link-cambio { color: #1e3c72; cursor: pointer; font-weight: 600; font-size: 13px; text-decoration: underline; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h2>🛡️ SafeQuito</h2>
-    <p class="subtitle">Seguridad del Barrio</p>
 
     <div id="seccion-login">
-        <input type="text" id="login-cedula" placeholder="Tu Cédula" maxlength="10">
-        <input type="password" id="login-pass" placeholder="Tu Contraseña">
+        <input type="text" id="login-cedula" placeholder="Cédula" maxlength="10">
+        <input type="password" id="login-pass" placeholder="Contraseña">
         <button class="principal" onclick="login()">INGRESAR</button>
-        <div class="footer-links">
-            <span class="link-cambio" onclick="mostrarRegistro()">¿Eres nuevo? Regístrate aquí</span>
-        </div>
+        <div style="margin-top:15px;"><span class="link-cambio" onclick="mostrarRegistro()">¿Eres nuevo? Regístrate aquí</span></div>
     </div>
 
     <div id="seccion-registro" class="oculto">
-        <h3 style="color: #27ae60; margin-top:0;">Nuevo Vecino</h3>
+        <h3 style="color: #27ae60; margin:0 0 10px 0;">Registro de Vecino</h3>
         <input type="text" id="reg-cedula" placeholder="Cédula (10 dígitos)" maxlength="10">
-        <input type="text" id="reg-nombres" placeholder="Nombres">
-        <input type="text" id="reg-apellidos" placeholder="Apellidos">
-        <input type="email" id="reg-correo" placeholder="Correo electrónico">
+        <div class="row">
+            <input type="text" id="reg-nombres" placeholder="Nombres">
+            <input type="text" id="reg-apellidos" placeholder="Apellidos">
+        </div>
         <input type="tel" id="reg-celular" placeholder="Número Celular">
+        
+        <p style="text-align:left; font-size:12px; font-weight:bold; margin:10px 0 2px 0; color:#1e3c72;">UBICACIÓN:</p>
+        <input type="text" id="reg-barrio" placeholder="Barrio / Sector">
+        <input type="text" id="reg-principal" placeholder="Calle Principal">
+        <div class="row">
+            <input type="text" id="reg-secundaria" placeholder="Calle Secundaria">
+            <input type="text" id="reg-casa" placeholder="N° Casa / Lote" style="width:120px;">
+        </div>
+        
         <input type="password" id="reg-pass" placeholder="Crear Contraseña">
         
         <div class="legal-container">
-            <label class="legal-label">
-                <input type="checkbox" id="reg-legal">
-                <span>Al marcar esta casilla, declaro que acepto los <span class="link-terminos" onclick="abrirModal()">términos y condiciones de uso</span>. Autorizo el tratamiento de mis datos y GPS conforme a la ley de Ecuador.</span>
+            <label style="display:flex; align-items:center;">
+                <input type="checkbox" id="reg-legal" style="width:20px; margin-right:10px;">
+                <span>Acepto términos y autorizo uso de datos y GPS para seguridad comunitaria en Ecuador.</span>
             </label>
         </div>
 
-        <button class="principal" style="background: #27ae60;" onclick="registrar()">CREAR CUENTA</button>
-        <div class="footer-links">
-            <span class="link-cambio" onclick="mostrarLogin()">Volver al ingreso</span>
-        </div>
+        <button class="principal" style="background: #27ae60;" onclick="registrar()">REGISTRARME</button>
+        <div style="margin-top:10px;"><span class="link-cambio" onclick="mostrarLogin()">Volver al ingreso</span></div>
     </div>
 
     <div id="seccion-botones" class="oculto">
-        <h3 id="bienvenida" style="color:#1e3c72; margin:0 0 15px 0;"></h3>
-        <button class="btn-alerta naranja" onclick="enviarAlerta('ROBO')">🔫 ROBO / ASALTO</button>
-        <button class="btn-alerta amarillo" onclick="enviarAlerta('SOSPECHOSO')">👤 SOSPECHOSO</button>
-        <button class="btn-alerta naranja-oscuro" onclick="enviarAlerta('INCENDIO')">🔥 INCENDIO</button>
+        <h3 id="bienvenida"></h3>
         <button class="btn-alerta rojo" onclick="enviarAlerta('AUXILIO')">🚨 AUXILIO / EMERGENCIA</button>
-        <button class="btn-alerta azul" onclick="enviarAlerta('ACCIDENTE')">🚑 ACCIDENTE</button>
-        <div class="footer-links">
-            <button onclick="location.reload()" style="background:none; border:none; color:gray; cursor:pointer;">Cerrar Sesión</button>
-        </div>
-    </div>
-</div>
-
-<div id="modalTerminos" class="modal">
-    <div class="modal-content">
-        <div class="modal-header"><h3>Términos y Condiciones</h3></div>
-        <p><b>1. Finalidad:</b> Uso exclusivo para la gestión de seguridad barrial y emergencias.</p>
-        <p><b>2. Datos:</b> Recolectamos Cédula, Contacto y GPS solo al reportar una alerta, conforme a la LOPDP de Ecuador.</p>
-        <p><b>3. Uso Indebido:</b> Reportes falsos serán sancionados según el COIP Art. 396.</p>
-        <p><b>4. Privacidad:</b> Sus datos no serán compartidos con terceros ajenos a la seguridad comunitaria.</p>
-        <button class="btn-cerrar" onclick="cerrarModal()">Entendido</button>
-        <div style="clear:both;"></div>
+        <button class="btn-alerta" style="background:#e67e22" onclick="enviarAlerta('ROBO')">🔫 ROBO</button>
+        <button class="btn-alerta" style="background:#f1c40f; color:#2c3e50" onclick="enviarAlerta('SOSPECHOSO')">👤 SOSPECHOSO</button>
+        <button class="btn-alerta" style="background:#2980b9" onclick="enviarAlerta('ACCIDENTE')">🚑 ACCIDENTE</button>
+        <div style="margin-top:15px;"><button onclick="location.reload()" style="background:none; border:none; color:gray; cursor:pointer;">Cerrar Sesión</button></div>
     </div>
 </div>
 
@@ -157,8 +74,6 @@
     const API_URL = "https://servidor-safe-quito.onrender.com/api/v1"; 
     let usuarioCedula = "";
 
-    function abrirModal() { document.getElementById('modalTerminos').style.display = 'block'; }
-    function cerrarModal() { document.getElementById('modalTerminos').style.display = 'none'; }
     function mostrarLogin() { document.getElementById('seccion-registro').classList.add('oculto'); document.getElementById('seccion-login').classList.remove('oculto'); }
     function mostrarRegistro() { document.getElementById('seccion-login').classList.add('oculto'); document.getElementById('seccion-registro').classList.remove('oculto'); }
 
@@ -166,75 +81,48 @@
         const btn = document.querySelector("#seccion-login .principal");
         const cedula = document.getElementById('login-cedula').value;
         const pass = document.getElementById('login-pass').value;
-
-        if(!cedula || !pass) return alert("Ingresa tus datos.");
-
-        const textoOriginal = btn.innerText;
-        btn.innerText = "⏳ INGRESANDO...";
-        btn.disabled = true;
-
+        if(!cedula || !pass) return alert("Llena tus datos.");
+        btn.innerText = "⏳ INGRESANDO..."; btn.disabled = true;
         try {
-            const res = await fetch(`${API_URL}/login`, { 
-                method: 'POST', 
-                headers: {'Content-Type': 'application/json'}, 
-                body: JSON.stringify({cedula, password: pass}) 
-            });
+            const res = await fetch(`${API_URL}/login`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({cedula, password: pass}) });
             const result = await res.json();
             if (result.status === "ok") {
                 usuarioCedula = cedula;
                 document.getElementById('seccion-login').classList.add('oculto');
                 document.getElementById('seccion-botones').classList.remove('oculto');
                 document.getElementById('bienvenida').innerText = "Hola, " + result.nombre;
-            } else { alert("Cédula o clave incorrecta."); }
-        } catch (e) { 
-            alert("El servidor está despertando. Por favor, intenta de nuevo en 10 segundos."); 
-        } finally {
-            btn.innerText = textoOriginal;
-            btn.disabled = false;
-        }
+            } else { alert("Datos incorrectos."); }
+        } catch (e) { alert("Servidor despertando... reintenta."); } finally { btn.innerText = "INGRESAR"; btn.disabled = false; }
     }
 
     async function registrar() {
-        if (!document.getElementById('reg-legal').checked) return alert("Debes aceptar los términos legales.");
-        
+        if (!document.getElementById('reg-legal').checked) return alert("Acepta los términos.");
         const datos = {
             cedula: document.getElementById('reg-cedula').value,
             nombres: document.getElementById('reg-nombres').value,
             apellidos: document.getElementById('reg-apellidos').value,
-            correo: document.getElementById('reg-correo').value,
             celular: document.getElementById('reg-celular').value,
+            barrio: document.getElementById('reg-barrio').value,
+            calle_principal: document.getElementById('reg-principal').value,
+            calle_secundaria: document.getElementById('reg-secundaria').value,
+            numero_casa: document.getElementById('reg-casa').value,
             password: document.getElementById('reg-pass').value
         };
-
-        if(datos.cedula.length !== 10) return alert("Cédula debe tener 10 dígitos.");
-
+        if(datos.cedula.length !== 10) return alert("Cédula inválida.");
         try {
-            const res = await fetch(`${API_URL}/registrar`, { 
-                method: 'POST', 
-                headers: {'Content-Type': 'application/json'}, 
-                body: JSON.stringify(datos) 
-            });
+            const res = await fetch(`${API_URL}/registrar`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(datos) });
             const result = await res.json();
-            if (result.status === "ok") { 
-                alert("¡Registro exitoso!"); 
-                mostrarLogin(); 
-            } else { alert("Error: " + result.msj); }
-        } catch (e) { alert("Error en el servidor."); }
+            if (result.status === "ok") { alert("¡Bienvenido! Ya puedes ingresar."); mostrarLogin(); }
+            else { alert("Error: " + result.msj); }
+        } catch (e) { alert("Error al conectar."); }
     }
 
     function enviarAlerta(tipo) {
-        if (!navigator.geolocation) return alert("Activa el GPS.");
         navigator.geolocation.getCurrentPosition(async (pos) => {
             const gps = `${pos.coords.latitude}, ${pos.coords.longitude}`;
-            try {
-                await fetch(`${API_URL}/reportar`, { 
-                    method: 'POST', 
-                    headers: {'Content-Type': 'application/json'}, 
-                    body: JSON.stringify({cedula: usuarioCedula, tipo, gps}) 
-                });
-                alert("✅ Alerta de " + tipo + " enviada.");
-            } catch (e) { alert("Error al reportar."); }
-        }, () => alert("Necesitamos el GPS para reportar."));
+            await fetch(`${API_URL}/reportar`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({cedula: usuarioCedula, tipo, gps}) });
+            alert("✅ Alerta enviada.");
+        });
     }
 </script>
 </body>
