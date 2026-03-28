@@ -17,7 +17,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 def home():
     return "Servidor SafeQuito 2026 - Sistema de Seguridad Activo", 200
 
-# 1. LOGIN
+# 1. LOGIN (AHORA DEVUELVE EL ROL)
 @app.route('/api/v1/login', methods=['POST'])
 def login():
     datos = request.json
@@ -35,19 +35,18 @@ def login():
             return jsonify({
                 "status": "ok", 
                 "nombre": usuario['nombres'],
-                "barrio": usuario['barrio']
+                "barrio": usuario['barrio'],
+                "rol": usuario.get('rol', 'vecino') # <--- IMPORTANTE PARA EL HTML
             }), 200
         else:
             return jsonify({"status": "error", "msj": "Cédula o clave incorrecta"}), 401
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
 
-# 2. REGISTRO (CON CORREO Y DIRECCIÓN)
+# 2. REGISTRO
 @app.route('/api/v1/registrar', methods=['POST'])
 def registrar():
     datos = request.json
-    
-    # Ciframos la contraseña por seguridad
     pw_raw = datos.get('password')
     pw_hash = bcrypt.generate_password_hash(pw_raw).decode('utf-8') if pw_raw else None
 
@@ -55,25 +54,23 @@ def registrar():
         "cedula": datos.get('cedula'),
         "nombres": datos.get('nombres'),
         "apellidos": datos.get('apellidos'),
-        "correo": datos.get('correo'), # <--- RECUPERADO
+        "correo": datos.get('correo'),
         "celular": datos.get('celular'),
         "password": pw_hash,
         "barrio": datos.get('barrio'),
         "calle_principal": datos.get('calle_principal'),
         "calle_secundaria": datos.get('calle_secundaria'),
-        "numero_casa": datos.get('numero_casa')
+        "numero_casa": datos.get('numero_casa'),
+        "rol": "vecino" # Por defecto todos entran como vecinos
     }
-
-    if not nuevo_usuario["cedula"] or not nuevo_usuario["password"]:
-        return jsonify({"status": "error", "msj": "Datos incompletos"}), 400
 
     try:
         supabase.table("usuarios").insert(nuevo_usuario).execute()
         return jsonify({"status": "ok", "msj": "Registro exitoso"}), 201
     except Exception as e:
-        return jsonify({"status": "error", "msj": "Error al registrar (Cédula duplicada o error de DB)"}), 500
+        return jsonify({"status": "error", "msj": "Error al registrar"}), 500
 
-# 3. REPORTAR ALERTA (MÁXIMO DETALLE)
+# 3. REPORTAR ALERTA (CON ESTADO)
 @app.route('/api/v1/reportar', methods=['POST'])
 def reportar():
     datos = request.json
@@ -82,7 +79,6 @@ def reportar():
     gps = datos.get('gps')
 
     try:
-        # Obtenemos info del vecino para el reporte
         res_user = supabase.table("usuarios").select("*").eq("cedula", cedula).execute()
         u = res_user.data[0] if res_user.data else {}
 
@@ -92,13 +88,71 @@ def reportar():
             "tipo_alerta": tipo_alerta,
             "gps": gps,
             "barrio": u.get('barrio'),
-            "direccion_exacta": f"{u.get('calle_principal')} y {u.get('calle_secundaria')} - Casa: {u.get('numero_casa')}"
+            "direccion_exacta": f"{u.get('calle_principal')} y {u.get('calle_secundaria')} - Casa: {u.get('numero_casa')}",
+            "estado": "Pendiente" # <--- ESTADO INICIAL
         }
 
         supabase.table("reportes").insert(nuevo_reporte).execute()
-        return jsonify({"status": "ok", "msj": "Alerta enviada"}), 200
+        return jsonify({"status": "ok"}), 200
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
+
+# ==========================================
+# RUTAS DE ADMINISTRACIÓN Y GESTIÓN
+# ==========================================
+
+# 4. ELIMINAR USUARIO (SOLO ADMIN)
+@app.route('/api/v1/usuarios/<cedula_objetivo>', methods=['DELETE'])
+def eliminar_usuario(cedula_objetivo):
+    admin_cedula = request.headers.get('X-Admin-Cedula') 
+
+    try:
+        # Verificamos si es Admin (Tú: 1756560001)
+        check = supabase.table("usuarios").select("rol").eq("cedula", admin_cedula).execute()
+        
+        if not check.data or check.data[0]['rol'] != 'admin':
+            return jsonify({"status": "error", "msj": "No autorizado"}), 403
+
+        supabase.table("usuarios").delete().eq("cedula", cedula_objetivo).execute()
+        return jsonify({"status": "ok", "msj": "Usuario eliminado"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "msj": str(e)}), 500
+
+# 5. VER REPORTES (ADMIN, POLICIA, DIRIGENTE)
+@app.route('/api/v1/reportes', methods=['GET'])
+def obtener_reportes():
+    user_cedula = request.headers.get('X-Usuario-Cedula')
+
+    try:
+        user_info = supabase.table("usuarios").select("rol").eq("cedula", user_cedula).execute()
+        rol = user_info.data[0]['rol'] if user_info.data else 'vecino'
+
+        if rol in ['admin', 'dirigente', 'policia']:
+            res = supabase.table("reportes").select("*").order("id", desc=True).execute()
+            return jsonify(res.data), 200
+        
+        return jsonify({"status": "error", "msj": "No autorizado"}), 403
+    except Exception as e:
+        return jsonify({"status": "error", "msj": str(e)}), 500
+
+# 6. ACTUALIZAR ESTADO DE REPORTE (POLICIA / DIRIGENTE)
+@app.route('/api/v1/reportes/<int:id_reporte>', methods=['PUT'])
+def actualizar_estado(id_reporte):
+    datos = request.json
+    nuevo_estado = datos.get('estado')
+    user_cedula = request.headers.get('X-Usuario-Cedula')
+
+    try:
+        user_info = supabase.table("usuarios").select("rol").eq("cedula", user_cedula).execute()
+        rol = user_info.data[0]['rol'] if user_info.data else 'vecino'
+
+        if rol in ['admin', 'dirigente', 'policia']:
+            supabase.table("reportes").update({"estado": nuevo_estado}).eq("id", id_reporte).execute()
+            return jsonify({"status": "ok"}), 200
+        
+        return jsonify({"status": "error"}), 403
+    except Exception as e:
+        return jsonify({"status": "error"}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
