@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SafeQuito - Seguridad Comunitaria</title>
     <style>
-        /* ESTILOS DE FONDO RESPONSIVOS */
         body { 
             font-family: 'Segoe UI', sans-serif; 
             margin: 0; 
@@ -15,7 +14,7 @@
             min-height: 100vh;
             background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
             background-attachment: fixed;
-            padding: 20px 0; /* Espacio para que no tope los bordes en celulares */
+            padding: 20px 0;
         }
 
         .container { 
@@ -26,7 +25,6 @@
             border-radius: 25px; 
             box-shadow: 0 15px 35px rgba(0,0,0,0.4); 
             text-align: center;
-            /* El contenedor ahora crece según el contenido */
             display: flex;
             flex-direction: column;
             height: auto;
@@ -60,7 +58,6 @@
             transition: 0.3s;
         }
 
-        /* DISEÑO DEL BLOQUE LEGAL */
         .legal-container {
             text-align: left; 
             margin: 15px 0; 
@@ -84,23 +81,10 @@
             height: 22px; 
             margin-right: 12px; 
             margin-top: 0;
-            flex-shrink: 0; /* Evita que el checkbox se aplaste */
+            flex-shrink: 0;
         }
 
-        /* BOTONES DE ALERTA */
-        .btn-alerta { 
-            width: 100%; 
-            padding: 18px; 
-            margin: 10px 0; 
-            border: none; 
-            border-radius: 15px; 
-            color: white; 
-            font-weight: bold; 
-            font-size: 18px; 
-            cursor: pointer; 
-            transition: 0.2s;
-        }
-
+        .btn-alerta { width: 100%; padding: 18px; margin: 10px 0; border: none; border-radius: 15px; color: white; font-weight: bold; font-size: 18px; cursor: pointer; transition: 0.2s; }
         .naranja { background: #e67e22; }
         .amarillo { background: #f1c40f; color: #2c3e50; }
         .naranja-oscuro { background: #d35400; }
@@ -130,7 +114,7 @@
         <input type="password" id="login-pass" placeholder="Tu Contraseña">
         <button class="principal" onclick="login()">INGRESAR</button>
         <div class="footer-links">
-            <span class="link-cambio" onclick="mostrarRegistro()">¿No tienes cuenta? Regístrate</span>
+            <span class="link-cambio" onclick="mostrarRegistro()">¿No tienes cuenta? Regístrate aquí</span>
         </div>
     </div>
 
@@ -146,7 +130,7 @@
         <div class="legal-container">
             <label class="legal-label">
                 <input type="checkbox" id="reg-legal">
-                <span>Acepto que mis datos y GPS sean usados solo para <b>Seguridad Comunitaria</b> conforme a la Ley LOPDP de Ecuador.</span>
+                <span>Acepto los <b>términos y condiciones conforme a la ley</b>. Mis datos personales y ubicación GPS serán usados exclusivamente para fines de seguridad comunitaria.</span>
             </label>
         </div>
 
@@ -158,13 +142,11 @@
 
     <div id="seccion-botones" class="oculto">
         <h3 id="bienvenida" style="color:#1e3c72; margin:0 0 15px 0;"></h3>
-        
         <button class="btn-alerta naranja" onclick="enviarAlerta('ROBO')">🔫 ROBO / ASALTO</button>
         <button class="btn-alerta amarillo" onclick="enviarAlerta('SOSPECHOSO')">👤 SOSPECHOSO</button>
         <button class="btn-alerta naranja-oscuro" onclick="enviarAlerta('INCENDIO')">🔥 INCENDIO</button>
         <button class="btn-alerta rojo pulsante" onclick="enviarAlerta('AUXILIO')">🚨 AUXILIO / EMERGENCIA</button>
         <button class="btn-alerta azul" onclick="enviarAlerta('ACCIDENTE')">🚑 ACCIDENTE</button>
-        
         <div class="footer-links">
             <button onclick="location.reload()" style="background:none; border:none; color:gray; cursor:pointer;">⬅️ Cerrar Sesión</button>
         </div>
@@ -188,7 +170,6 @@
     async function login() {
         const cedula = document.getElementById('login-cedula').value;
         const pass = document.getElementById('login-pass').value;
-
         try {
             const res = await fetch(`${API_URL}/login`, {
                 method: 'POST',
@@ -201,15 +182,14 @@
                 document.getElementById('seccion-login').classList.add('oculto');
                 document.getElementById('seccion-botones').classList.remove('oculto');
                 document.getElementById('bienvenida').innerText = "Hola, " + result.nombre;
-            } else { alert("Datos incorrectos"); }
-        } catch (e) { alert("Error de conexión con SafeQuito"); }
+            } else { alert("Cédula o clave incorrecta"); }
+        } catch (e) { alert("Error al conectar con SafeQuito"); }
     }
 
     async function registrar() {
         if (!document.getElementById('reg-legal').checked) {
-            return alert("Debes aceptar el uso de datos para continuar.");
+            return alert("Para continuar, debes marcar la casilla de aceptación de términos y condiciones legales.");
         }
-
         const datos = {
             cedula: document.getElementById('reg-cedula').value,
             nombres: document.getElementById('reg-nombres').value,
@@ -218,7 +198,6 @@
             celular: document.getElementById('reg-celular').value,
             password: document.getElementById('reg-pass').value
         };
-
         try {
             const res = await fetch(`${API_URL}/registrar`, {
                 method: 'POST',
@@ -230,7 +209,7 @@
                 alert("¡Registro exitoso! Ya puedes ingresar.");
                 mostrarLogin();
             } else { alert("Error: " + result.msj); }
-        } catch (e) { alert("Error al registrar."); }
+        } catch (e) { alert("Error en el registro."); }
     }
 
     function enviarAlerta(tipo) {
@@ -243,9 +222,9 @@
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({cedula: usuarioCedula, tipo: tipo, gps: gps})
                 });
-                if (res.ok) alert("✅ Alerta de " + tipo + " enviada.");
-            } catch (e) { alert("Error al enviar."); }
-        }, () => alert("Necesitamos el GPS para enviar la ayuda."));
+                if (res.ok) alert("✅ Alerta de " + tipo + " enviada al barrio.");
+            } catch (e) { alert("Error al enviar reporte."); }
+        }, () => alert("Debes permitir el GPS para enviar alertas de emergencia."));
     }
 </script>
 </body>
