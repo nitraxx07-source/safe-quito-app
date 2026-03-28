@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SafeQuito - Seguridad Comunitaria</title>
     <style>
-        /* FONDO Y ESTILOS GENERALES */
+        /* DISEÑO DE FONDO Y CONTENEDOR */
         body { 
             font-family: 'Segoe UI', sans-serif; 
             margin: 0; 
@@ -55,7 +55,7 @@
             transition: 0.3s;
         }
 
-        /* ESTILOS DE BOTONES DE ALERTA */
+        /* BOTONES DE ALERTA */
         .btn-alerta { 
             width: 100%; 
             padding: 18px; 
@@ -66,10 +66,6 @@
             font-weight: bold; 
             font-size: 18px; 
             cursor: pointer; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            gap: 10px;
             transition: 0.2s;
         }
 
@@ -78,7 +74,7 @@
         .naranja-oscuro { background: #d35400; }
         .azul { background: #2980b9; }
         
-        /* BOTÓN AUXILIO ESPECIAL */
+        /* BOTÓN AUXILIO ESPECIAL (PULSANTE) */
         .rojo { 
             background: #d63031; 
             height: 90px; 
@@ -86,9 +82,7 @@
             border-bottom: 5px solid #b71c1c; 
         }
 
-        .pulsante {
-            animation: pulse-red 2s infinite;
-        }
+        .pulsante { animation: pulse-red 2s infinite; }
 
         @keyframes pulse-red {
             0% { box-shadow: 0 0 0 0 rgba(214, 48, 49, 0.7); }
@@ -99,13 +93,17 @@
         .oculto { display: none; }
         .footer-links { margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px; }
         .link-cambio { color: #1e3c72; cursor: pointer; font-weight: 600; font-size: 14px; text-decoration: underline; }
+        
+        /* ESTILO LEGAL */
+        .legal-box { text-align: left; margin: 15px 0; font-size: 12px; color: #555; display: flex; align-items: flex-start; gap: 8px; }
+        .legal-box input { width: auto; margin: 3px 0 0 0; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h2>🛡️ SafeQuito</h2>
-    <p class="subtitle">Comunidad Organizada</p>
+    <p class="subtitle">Comunidad Segura y Legal</p>
 
     <div id="seccion-login">
         <input type="text" id="login-cedula" placeholder="Cédula">
@@ -117,34 +115,39 @@
     </div>
 
     <div id="seccion-registro" class="oculto">
-        <h3>Nuevo Vecino</h3>
-        <input type="text" id="reg-cedula" placeholder="Número de Cédula">
+        <h3>Nuevo Registro</h3>
+        <input type="text" id="reg-cedula" placeholder="Cédula">
         <input type="text" id="reg-nombres" placeholder="Nombres">
         <input type="text" id="reg-apellidos" placeholder="Apellidos">
-        <input type="email" id="reg-correo" placeholder="Correo electrónico">
+        <input type="email" id="reg-correo" placeholder="Correo">
         <input type="tel" id="reg-celular" placeholder="Celular">
-        <input type="password" id="reg-pass" placeholder="Crear Contraseña">
-        <button class="principal" style="background: #27ae60;" onclick="registrar()">CREAR CUENTA</button>
+        <input type="password" id="reg-pass" placeholder="Contraseña">
+        
+        <div class="legal-box">
+            <input type="checkbox" id="reg-legal">
+            <label for="reg-legal">
+                Acepto que mis datos personales y ubicación GPS sean usados exclusivamente para 
+                <b>fines de seguridad comunitaria</b> según la ley vigente.
+            </label>
+        </div>
+
+        <button class="principal" style="background: #27ae60;" onclick="registrar()">CREAR MI CUENTA</button>
         <div class="footer-links">
             <span class="link-cambio" onclick="mostrarLogin()">Ya tengo cuenta, volver</span>
         </div>
     </div>
 
     <div id="seccion-botones" class="oculto">
-        <h3 id="bienvenida" style="color:#1e3c72; margin: 0 0 15px 0;"></h3>
+        <h3 id="bienvenida" style="color:#1e3c72; margin-bottom: 15px;"></h3>
         
         <button class="btn-alerta naranja" onclick="enviarAlerta('ROBO')">🔫 ROBO / ASALTO</button>
-        
-        <button class="btn-alerta amarillo" onclick="enviarAlerta('SOSPECHOSO')">👤 AUTO/PERSONA SOSPECHOSA</button>
-        
+        <button class="btn-alerta amarillo" onclick="enviarAlerta('SOSPECHOSO')">👤 SOSPECHOSO</button>
         <button class="btn-alerta naranja-oscuro" onclick="enviarAlerta('INCENDIO')">🔥 INCENDIO</button>
-        
         <button class="btn-alerta rojo pulsante" onclick="enviarAlerta('AUXILIO')">🚨 AUXILIO / EMERGENCIA</button>
-        
         <button class="btn-alerta azul" onclick="enviarAlerta('ACCIDENTE')">🚑 ACCIDENTE</button>
         
         <div class="footer-links">
-            <button onclick="location.reload()" style="background:none; border:none; color:gray; cursor:pointer;">⬅️ Salir</button>
+            <button onclick="location.reload()" style="background:none; border:none; color:gray; cursor:pointer;">⬅️ Cerrar Sesión</button>
         </div>
     </div>
 </div>
@@ -178,12 +181,17 @@
                 usuarioCedula = cedula;
                 document.getElementById('seccion-login').classList.add('oculto');
                 document.getElementById('seccion-botones').classList.remove('oculto');
-                document.getElementById('bienvenida').innerText = "Hola, " + result.nombre;
-            } else { alert("Cédula o clave incorrecta"); }
-        } catch (e) { alert("Error de conexión"); }
+                document.getElementById('bienvenida').innerText = "Bienvenido, " + result.nombre;
+            } else { alert("Datos incorrectos"); }
+        } catch (e) { alert("Error al conectar con el servidor."); }
     }
 
     async function registrar() {
+        // VALIDACIÓN LEGAL OBLIGATORIA
+        if (!document.getElementById('reg-legal').checked) {
+            return alert("Para registrarte debes aceptar el uso de datos para fines de seguridad.");
+        }
+
         const datos = {
             cedula: document.getElementById('reg-cedula').value,
             nombres: document.getElementById('reg-nombres').value,
@@ -193,20 +201,25 @@
             password: document.getElementById('reg-pass').value
         };
 
-        const res = await fetch(`${API_URL}/registrar`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(datos)
-        });
-        const result = await res.json();
-        if (result.status === "ok") {
-            alert("¡Registro exitoso! Ya puedes ingresar.");
-            mostrarLogin();
-        } else { alert("Error: " + result.msj); }
+        if(!datos.cedula || !datos.password) return alert("Por favor llena los campos principales.");
+
+        try {
+            const res = await fetch(`${API_URL}/registrar`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(datos)
+            });
+            const result = await res.json();
+            if (result.status === "ok") {
+                alert("¡Registro completado con éxito!");
+                mostrarLogin();
+            } else { alert("Error: " + result.msj); }
+        } catch (e) { alert("Error al registrar."); }
     }
 
     function enviarAlerta(tipo) {
-        if (!navigator.geolocation) return alert("Activa el GPS");
+        if (!navigator.geolocation) return alert("Por favor activa el GPS.");
+        
         navigator.geolocation.getCurrentPosition(async (pos) => {
             const gps = `${pos.coords.latitude}, ${pos.coords.longitude}`;
             try {
@@ -215,9 +228,9 @@
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({cedula: usuarioCedula, tipo: tipo, gps: gps})
                 });
-                if (res.ok) alert("✅ Alerta de " + tipo + " enviada al barrio.");
-            } catch (e) { alert("Error al enviar."); }
-        });
+                if (res.ok) alert("🚨 Alerta de " + tipo + " enviada al sistema.");
+            } catch (e) { alert("Error al enviar reporte."); }
+        }, () => alert("Error: Debes permitir el GPS para reportar."));
     }
 </script>
 </body>
