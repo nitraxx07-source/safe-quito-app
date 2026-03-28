@@ -3,14 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SafeQuito - Seguridad Comunitaria</title>
-    <meta name="theme-color" content="#1e3c72">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    
+    <title>SafeQuito - Seguridad</title>
     <style>
         body { 
-            font-family: 'Segoe UI', Roboto, sans-serif; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
             margin: 0; 
             display: flex; 
             align-items: center; 
@@ -19,81 +15,172 @@
             background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
             background-attachment: fixed;
             padding: 20px 0;
-            -webkit-tap-highlight-color: transparent;
         }
 
         .container { 
             width: 90%; 
             max-width: 400px; 
-            background: rgba(255, 255, 255, 0.98); 
+            background: white; 
             padding: 25px; 
-            border-radius: 25px; 
-            box-shadow: 0 15px 35px rgba(0,0,0,0.4); 
+            border-radius: 20px; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3); 
             text-align: center; 
         }
 
-        h2 { color: #1e3c72; margin-bottom: 20px; font-size: 28px; }
-
         input { 
             width: 100%; 
-            padding: 14px; 
+            padding: 12px; 
             margin: 8px 0; 
-            border: 1.5px solid #ddd; 
-            border-radius: 12px; 
+            border: 1px solid #ccc; 
+            border-radius: 10px; 
             box-sizing: border-box; 
-            font-size: 16px; 
-            transition: 0.3s;
         }
-
-        input:focus { border-color: #1e3c72; outline: none; box-shadow: 0 0 8px rgba(30,60,114,0.2); }
-
-        .row { display: flex; gap: 10px; }
 
         button.principal { 
             width: 100%; 
-            padding: 16px; 
+            padding: 15px; 
             background: #1e3c72; 
             color: white; 
             border: none; 
-            border-radius: 12px; 
-            font-size: 18px; 
+            border-radius: 10px; 
             font-weight: bold; 
-            cursor: pointer; 
-            margin-top: 15px; 
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            cursor: pointer;
+            margin-top: 10px;
         }
 
-        /* BOTONES DE ALERTA */
         .btn-alerta { 
             width: 100%; 
             padding: 18px; 
             margin: 10px 0; 
             border: none; 
-            border-radius: 18px; 
+            border-radius: 15px; 
             color: white; 
             font-weight: bold; 
-            font-size: 17px; 
+            font-size: 16px; 
             cursor: pointer; 
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            transition: transform 0.1s;
         }
 
-        .btn-alerta:active { transform: scale(0.96); }
-
-        /* BOTÓN AUXILIO EXTRA GRANDE */
         .btn-auxilio { 
             background: #d63031; 
-            min-height: 120px; 
-            font-size: 26px !important; 
-            border-bottom: 8px solid #b71c1c; 
-            margin-bottom: 25px;
-            animation: pulso-rojo 1.5s infinite;
+            height: 100px; 
+            font-size: 22px !important; 
+            animation: pulse 1.5s infinite;
         }
 
-        @keyframes pulso-rojo {
-            0% { box-shadow: 0 0 0 0 rgba(214, 48, 49, 0.7); }
-            70% { box-shadow: 0 0 0 20px rgba(214, 48, 49, 0); }
-            100% { box-shadow: 0 0 0 0
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
+
+        .btn-robo { background: #e67e22; }
+        .btn-sospechoso { background: #f1c40f; color: #2c3e50; }
+        .btn-incendio { background: #d35400; }
+        .btn-accidente { background: #2980b9; }
+
+        .oculto { display: none; }
+        .link { color: #1e3c72; cursor: pointer; display: block; margin-top: 15px; font-size: 14px; text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2 style="color:#1e3c72;">🛡️ SafeQuito</h2>
+
+    <div id="seccion-login">
+        <input type="text" id="login-cedula" placeholder="Cédula" maxlength="10">
+        <input type="password" id="login-pass" placeholder="Contraseña">
+        <button class="principal" onclick="login()">INGRESAR</button>
+        <span class="link" onclick="mostrarRegistro()">¿Eres nuevo? Regístrate</span>
+    </div>
+
+    <div id="seccion-registro" class="oculto">
+        <h3>Registro</h3>
+        <input type="text" id="reg-cedula" placeholder="Cédula" maxlength="10">
+        <input type="text" id="reg-nombres" placeholder="Nombres">
+        <input type="text" id="reg-apellidos" placeholder="Apellidos">
+        <input type="text" id="reg-barrio" placeholder="Barrio">
+        <input type="password" id="reg-pass" placeholder="Contraseña">
+        <button class="principal" style="background:#27ae60" onclick="registrar()">REGISTRARME</button>
+        <span class="link" onclick="mostrarLogin()">Volver</span>
+    </div>
+
+    <div id="seccion-botones" class="oculto">
+        <h4 id="bienvenida"></h4>
+        <button class="btn-alerta btn-auxilio" onclick="enviarAlerta('AUXILIO')">🚨 AUXILIO</button>
+        <button class="btn-alerta btn-robo" onclick="enviarAlerta('ROBO')">🔫 ROBO</button>
+        <button class="btn-alerta btn-sospechoso" onclick="enviarAlerta('SOSPECHOSO')">👤 SOSPECHOSO</button>
+        <button class="btn-alerta btn-incendio" onclick="enviarAlerta('INCENDIO')">🔥 INCENDIO</button>
+        <button class="btn-alerta btn-accidente" onclick="enviarAlerta('ACCIDENTE')">🚑 ACCIDENTE</button>
+    </div>
+</div>
+
+<script>
+    const API_URL = "https://servidor-safe-quito.onrender.com/api/v1";
+    let cedulaGlobal = "";
+
+    function mostrarRegistro() {
+        document.getElementById('seccion-login').className = 'oculto';
+        document.getElementById('seccion-registro').className = '';
+    }
+
+    function mostrarLogin() {
+        document.getElementById('seccion-registro').className = 'oculto';
+        document.getElementById('seccion-login').className = '';
+    }
+
+    async function login() {
+        const cedula = document.getElementById('login-cedula').value;
+        const pass = document.getElementById('login-pass').value;
+        try {
+            const res = await fetch(`${API_URL}/login`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({cedula, password: pass})
+            });
+            const data = await res.json();
+            if (data.status === "ok") {
+                cedulaGlobal = cedula;
+                document.getElementById('seccion-login').className = 'oculto';
+                document.getElementById('seccion-botones').className = '';
+                document.getElementById('bienvenida').innerText = "Hola, " + data.nombre;
+            } else { alert("Datos incorrectos"); }
+        } catch (e) { alert("Error de conexión"); }
+    }
+
+    async function registrar() {
+        const datos = {
+            cedula: document.getElementById('reg-cedula').value,
+            nombres: document.getElementById('reg-nombres').value,
+            apellidos: document.getElementById('reg-apellidos').value,
+            barrio: document.getElementById('reg-barrio').value,
+            password: document.getElementById('reg-pass').value
+        };
+        try {
+            const res = await fetch(`${API_URL}/registrar`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(datos)
+            });
+            if (res.ok) { alert("¡Éxito! Ya puedes entrar."); mostrarLogin(); }
+        } catch (e) { alert("Error al registrar"); }
+    }
+
+    function enviarAlerta(tipo) {
+        if (!confirm("¿Enviar alerta de " + tipo + "?")) return;
+        
+        navigator.geolocation.getCurrentPosition(async (pos) => {
+            const gps = `${pos.coords.latitude},${pos.coords.longitude}`;
+            try {
+                await fetch(`${API_URL}/reportar`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({cedula: cedulaGlobal, tipo, gps})
+                });
+                alert("✅ Alerta enviada");
+            } catch (e) { alert("Error al enviar"); }
+        }, () => alert("Activa el GPS"));
+    }
+</script>
+</body>
+</html>
