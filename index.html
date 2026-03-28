@@ -3,38 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SafeQuito - Seguridad</title>
+    <title>SafeQuito 2026</title>
     <style>
         body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            font-family: 'Segoe UI', sans-serif; 
             margin: 0; 
             display: flex; 
             align-items: center; 
             justify-content: center; 
             min-height: 100vh;
             background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-            background-attachment: fixed;
             padding: 20px 0;
         }
 
         .container { 
             width: 90%; 
-            max-width: 400px; 
+            max-width: 420px; 
             background: white; 
             padding: 25px; 
             border-radius: 20px; 
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3); 
+            box-shadow: 0 15px 35px rgba(0,0,0,0.4); 
             text-align: center; 
         }
 
         input { 
             width: 100%; 
             padding: 12px; 
-            margin: 8px 0; 
-            border: 1px solid #ccc; 
+            margin: 6px 0; 
+            border: 1px solid #ddd; 
             border-radius: 10px; 
             box-sizing: border-box; 
+            font-size: 15px;
         }
+
+        .row { display: flex; gap: 8px; }
 
         button.principal { 
             width: 100%; 
@@ -42,8 +44,9 @@
             background: #1e3c72; 
             color: white; 
             border: none; 
-            border-radius: 10px; 
+            border-radius: 12px; 
             font-weight: bold; 
+            font-size: 17px;
             cursor: pointer;
             margin-top: 10px;
         }
@@ -56,20 +59,21 @@
             border-radius: 15px; 
             color: white; 
             font-weight: bold; 
-            font-size: 16px; 
+            font-size: 17px; 
             cursor: pointer; 
         }
 
         .btn-auxilio { 
             background: #d63031; 
-            height: 100px; 
-            font-size: 22px !important; 
+            height: 110px; 
+            font-size: 24px !important; 
             animation: pulse 1.5s infinite;
+            border-bottom: 5px solid #b71c1c;
         }
 
         @keyframes pulse {
             0% { transform: scale(1); }
-            50% { transform: scale(1.02); }
+            50% { transform: scale(1.03); }
             100% { transform: scale(1); }
         }
 
@@ -78,40 +82,66 @@
         .btn-incendio { background: #d35400; }
         .btn-accidente { background: #2980b9; }
 
+        .btn-logout {
+            background: #f1f2f6;
+            border: 1px solid #ccc;
+            color: #555;
+            padding: 10px;
+            border-radius: 10px;
+            margin-top: 25px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: bold;
+        }
+
         .oculto { display: none; }
-        .link { color: #1e3c72; cursor: pointer; display: block; margin-top: 15px; font-size: 14px; text-decoration: underline; }
+        .link { color: #1e3c72; cursor: pointer; display: block; margin-top: 15px; font-weight: bold; text-decoration: underline; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2 style="color:#1e3c72;">🛡️ SafeQuito</h2>
+    <h2>🛡️ SafeQuito</h2>
 
     <div id="seccion-login">
         <input type="text" id="login-cedula" placeholder="Cédula" maxlength="10">
         <input type="password" id="login-pass" placeholder="Contraseña">
         <button class="principal" onclick="login()">INGRESAR</button>
-        <span class="link" onclick="mostrarRegistro()">¿Eres nuevo? Regístrate</span>
+        <span class="link" onclick="mostrarRegistro()">Crear cuenta nueva</span>
     </div>
 
     <div id="seccion-registro" class="oculto">
-        <h3>Registro</h3>
+        <h3>Registro de Vecino</h3>
         <input type="text" id="reg-cedula" placeholder="Cédula" maxlength="10">
-        <input type="text" id="reg-nombres" placeholder="Nombres">
-        <input type="text" id="reg-apellidos" placeholder="Apellidos">
-        <input type="text" id="reg-barrio" placeholder="Barrio">
-        <input type="password" id="reg-pass" placeholder="Contraseña">
+        <div class="row">
+            <input type="text" id="reg-nombres" placeholder="Nombres">
+            <input type="text" id="reg-apellidos" placeholder="Apellidos">
+        </div>
+        <input type="email" id="reg-correo" placeholder="Correo Electrónico">
+        <input type="tel" id="reg-celular" placeholder="Número Celular">
+        
+        <p style="text-align:left; font-size:12px; margin:10px 0 0 5px; color:#1e3c72; font-weight:bold;">Ubicación en el Barrio:</p>
+        <input type="text" id="reg-barrio" placeholder="Barrio / Sector">
+        <input type="text" id="reg-principal" placeholder="Calle Principal">
+        <div class="row">
+            <input type="text" id="reg-secundaria" placeholder="Calle Secundaria">
+            <input type="text" id="reg-casa" placeholder="N° de Casa">
+        </div>
+        
+        <input type="password" id="reg-pass" placeholder="Crear Contraseña">
         <button class="principal" style="background:#27ae60" onclick="registrar()">REGISTRARME</button>
-        <span class="link" onclick="mostrarLogin()">Volver</span>
+        <span class="link" onclick="mostrarLogin()">Volver al inicio</span>
     </div>
 
     <div id="seccion-botones" class="oculto">
-        <h4 id="bienvenida"></h4>
-        <button class="btn-alerta btn-auxilio" onclick="enviarAlerta('AUXILIO')">🚨 AUXILIO</button>
+        <h3 id="bienvenida"></h3>
+        <button class="btn-alerta btn-auxilio" onclick="enviarAlerta('AUXILIO EMERGENCIA')">🚨 AUXILIO</button>
         <button class="btn-alerta btn-robo" onclick="enviarAlerta('ROBO')">🔫 ROBO</button>
         <button class="btn-alerta btn-sospechoso" onclick="enviarAlerta('SOSPECHOSO')">👤 SOSPECHOSO</button>
         <button class="btn-alerta btn-incendio" onclick="enviarAlerta('INCENDIO')">🔥 INCENDIO</button>
         <button class="btn-alerta btn-accidente" onclick="enviarAlerta('ACCIDENTE')">🚑 ACCIDENTE</button>
+        
+        <button class="btn-logout" onclick="cerrarSesion()">Cerrar Sesión Segura</button>
     </div>
 </div>
 
@@ -119,14 +149,13 @@
     const API_URL = "https://servidor-safe-quito.onrender.com/api/v1";
     let cedulaGlobal = "";
 
-    function mostrarRegistro() {
-        document.getElementById('seccion-login').className = 'oculto';
-        document.getElementById('seccion-registro').className = '';
-    }
-
-    function mostrarLogin() {
-        document.getElementById('seccion-registro').className = 'oculto';
-        document.getElementById('seccion-login').className = '';
+    function mostrarRegistro() { document.getElementById('seccion-login').classList.add('oculto'); document.getElementById('seccion-registro').classList.remove('oculto'); }
+    function mostrarLogin() { document.getElementById('seccion-registro').classList.add('oculto'); document.getElementById('seccion-login').classList.remove('oculto'); }
+    
+    function cerrarSesion() {
+        if(confirm("¿Deseas cerrar tu sesión?")) {
+            location.reload();
+        }
     }
 
     async function login() {
@@ -141,11 +170,11 @@
             const data = await res.json();
             if (data.status === "ok") {
                 cedulaGlobal = cedula;
-                document.getElementById('seccion-login').className = 'oculto';
-                document.getElementById('seccion-botones').className = '';
+                document.getElementById('seccion-login').classList.add('oculto');
+                document.getElementById('seccion-botones').classList.remove('oculto');
                 document.getElementById('bienvenida').innerText = "Hola, " + data.nombre;
-            } else { alert("Datos incorrectos"); }
-        } catch (e) { alert("Error de conexión"); }
+            } else { alert("Cédula o clave incorrectas"); }
+        } catch (e) { alert("Error al conectar con el servidor"); }
     }
 
     async function registrar() {
@@ -153,33 +182,42 @@
             cedula: document.getElementById('reg-cedula').value,
             nombres: document.getElementById('reg-nombres').value,
             apellidos: document.getElementById('reg-apellidos').value,
+            correo: document.getElementById('reg-correo').value, // Enviando el correo
+            celular: document.getElementById('reg-celular').value,
             barrio: document.getElementById('reg-barrio').value,
+            calle_principal: document.getElementById('reg-principal').value,
+            calle_secundaria: document.getElementById('reg-secundaria').value,
+            numero_casa: document.getElementById('reg-casa').value,
             password: document.getElementById('reg-pass').value
         };
+
         try {
             const res = await fetch(`${API_URL}/registrar`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(datos)
             });
-            if (res.ok) { alert("¡Éxito! Ya puedes entrar."); mostrarLogin(); }
-        } catch (e) { alert("Error al registrar"); }
+            if (res.ok) { 
+                alert("¡Registro exitoso!"); 
+                mostrarLogin(); 
+            } else { alert("Error al registrar"); }
+        } catch (e) { alert("Error de red"); }
     }
 
     function enviarAlerta(tipo) {
-        if (!confirm("¿Enviar alerta de " + tipo + "?")) return;
+        if (!confirm(`¿Confirmas el envío de alerta de ${tipo}?`)) return;
         
         navigator.geolocation.getCurrentPosition(async (pos) => {
             const gps = `${pos.coords.latitude},${pos.coords.longitude}`;
             try {
-                await fetch(`${API_URL}/reportar`, {
+                const res = await fetch(`${API_URL}/reportar`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({cedula: cedulaGlobal, tipo, gps})
                 });
-                alert("✅ Alerta enviada");
-            } catch (e) { alert("Error al enviar"); }
-        }, () => alert("Activa el GPS"));
+                if(res.ok) alert("✅ Alerta enviada con éxito.");
+            } catch (e) { alert("Error al reportar"); }
+        }, () => alert("Activa el GPS para enviar"));
     }
 </script>
 </body>
