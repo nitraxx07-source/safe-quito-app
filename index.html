@@ -199,16 +199,37 @@
         } catch (e) { alert("Error al conectar."); }
     }
 
-    function enviarAlerta(tipo) {
-        if (!navigator.geolocation) return alert("Activa el GPS.");
+ function enviarAlerta(tipo) {
+        // 1. Confirmación de Seguridad
+        const mensajeConfirmacion = `¿Estás seguro de enviar una alerta de ${tipo}?`;
+        if (!confirm(mensajeConfirmacion)) {
+            return; // Si el vecino cancela, no pasa nada
+        }
+
+        // 2. Verificación de GPS
+        if (!navigator.geolocation) {
+            return alert("Error: Tu celular no permite el acceso al GPS.");
+        }
+
+        // 3. Obtención de ubicación y envío
         navigator.geolocation.getCurrentPosition(async (pos) => {
             const gps = `${pos.coords.latitude}, ${pos.coords.longitude}`;
             try {
-                await fetch(`${API_URL}/reportar`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({cedula: usuarioCedula, tipo, gps}) });
-                alert("✅ Alerta de " + tipo + " enviada con éxito.");
-            } catch (e) { alert("Error al enviar reporte."); }
-        }, () => alert("Se requiere GPS para la alerta."));
+                const res = await fetch(`${API_URL}/reportar`, { 
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'}, 
+                    body: JSON.stringify({cedula: usuarioCedula, tipo, gps}) 
+                });
+                
+                if (res.ok) {
+                    alert("✅ Alerta de " + tipo + " enviada. Los dirigentes han sido notificados.");
+                } else {
+                    alert("⚠️ Error al procesar la alerta. Intenta de nuevo.");
+                }
+            } catch (e) {
+                alert("❌ Error de conexión con el servidor.");
+            }
+        }, () => {
+            alert("No se pudo obtener tu ubicación. Por favor, activa el GPS.");
+        }, { enableHighAccuracy: true });
     }
-</script>
-</body>
-</html>
