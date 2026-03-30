@@ -27,7 +27,6 @@
         .row { display: flex; gap: 10px; }
         label { display: block; font-size: 12px; font-weight: bold; color: var(--azul-oscuro); text-align: left; margin-left: 5px; margin-top: 10px; }
 
-        /* Spinner de carga */
         .spinner { display: none; width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s linear infinite; margin: 0 auto; }
         @keyframes spin { to { transform: rotate(360deg); } }
         button:disabled { background: #95a5a6 !important; cursor: not-allowed; }
@@ -196,14 +195,12 @@
         document.getElementById('seccion-app').classList.remove('oculto');
         document.getElementById('bienvenida').innerText = `Hola, ${nombre}`;
 
-        // Los vecinos (rol vacío o 'vecino') NO ven el panel de gestión
         if (rol !== 'admin') document.getElementById('contenedor-botones').classList.remove('oculto');
         
-        // Admin, Dirigente y Policia ven la gestión
         if (rol === 'admin' || rol === 'policia' || rol === 'dirigente') {
             document.getElementById('panel-gestion').classList.remove('oculto');
             cargarReportes();
-            setInterval(cargarReportes, 15000);
+            setInterval(cargarReportes, 10000); // Actualización cada 10 segundos
         }
         if (rol === 'admin') document.getElementById('panel-admin').classList.remove('oculto');
     }
@@ -217,12 +214,14 @@
 
             let html = "";
             pendientes.forEach(r => {
+                // Corrección del enlace de Google Maps
+                const mapaLink = `https://www.google.com/maps?q=${r.gps}`;
                 html += `
                 <div class="card-reporte">
                     <span class="badge-pendiente">PENDIENTE</span>
                     <b>${r.tipo_alerta}</b><br>
                     <small>${r.nombre_completo} | 🏠 ${r.barrio}</small><br>
-                    <small>📍 <a href="https://www.google.com/maps?q=${r.gps}" target="_blank" style="color:var(--azul-oscuro); font-weight:bold;">UBICACIÓN</a></small><br>
+                    <small>📍 <a href="${mapaLink}" target="_blank" style="color:var(--azul-oscuro); font-weight:bold;">VER UBICACIÓN</a></small><br>
                     <div style="display:flex; gap:10px;">
                         <button class="btn-accion" style="background:#2980b9" onclick="cambiarEstado(${r.id}, 'En transcurso')">EN CURSO</button>
                         <button class="btn-accion" style="background:#27ae60" onclick="cambiarEstado(${r.id}, 'Atendido')">ATENDIDO</button>
@@ -235,12 +234,12 @@
 
     async function cambiarEstado(id, nuevo) {
         try {
-            await fetch(`${API_URL}/reportes/${id}`, {
+            const res = await fetch(`${API_URL}/reportes/${id}`, {
                 method: 'PUT',
                 headers: {'Content-Type': 'application/json', 'X-Usuario-Cedula': miCedula},
                 body: JSON.stringify({estado: nuevo})
             });
-            cargarReportes();
+            if(res.ok) cargarReportes();
         } catch(e) { alert("Error al actualizar"); }
     }
 
@@ -272,23 +271,43 @@
     async function eliminarUsuario() {
         const target = document.getElementById('input-borrar').value;
         if (!target || !confirm(`¿Borrar usuario ${target}?`)) return;
-        await fetch(`${API_URL}/usuarios/${target}`, { method: 'DELETE', headers: {'X-Admin-Cedula': miCedula} });
-        alert("Usuario eliminado.");
+        try {
+            const res = await fetch(`${API_URL}/usuarios/${target}`, { method: 'DELETE', headers: {'X-Admin-Cedula': miCedula} });
+            if(res.ok) { alert("Usuario eliminado."); document.getElementById('input-borrar').value = ""; }
+        } catch(e) { alert("Error al eliminar."); }
     }
 
-    function enviarAlerta(tipo) {
+    // FUNCIÓN DE ALERTA ACTUALIZADA PARA SUPABASE
+    async function enviarAlerta(tipo) {
         if (!confirm(`¿Enviar alerta de ${tipo}?`)) return;
+
         navigator.geolocation.getCurrentPosition(async (pos) => {
             const gps = `${pos.coords.latitude},${pos.coords.longitude}`;
+            
             try {
-                await fetch(`${API_URL}/reportar`, {
+                const res = await fetch(`${API_URL}/reportar`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({cedula: miCedula, tipo, gps})
+                    body: JSON.stringify({
+                        cedula: miCedula, 
+                        tipo: tipo, 
+                        gps: gps
+                    })
                 });
-                alert("✅ Alerta enviada.");
-            } catch(e) { alert("Error al enviar."); }
-        }, () => alert("Activa el GPS"));
+
+                if (res.ok) {
+                    alert("✅ Alerta enviada y confirmada en sistema.");
+                    // Si el usuario tiene panel de gestión, recargar para ver su propia alerta
+                    const rol = localStorage.getItem('safe_rol');
+                    if (rol === 'admin' || rol === 'policia' || rol === 'dirigente') cargarReportes();
+                } else {
+                    const err = await res.json();
+                    alert("❌ Error: " + (err.msj || "No se pudo enviar."));
+                }
+            } catch(e) { 
+                alert("📡 Error de red: El servidor está tardando en responder."); 
+            }
+        }, () => alert("📍 Por favor activa el GPS de tu celular para enviar la alerta."), {enableHighAccuracy: true});
     }
 
     if ('serviceWorker' in navigator) {
