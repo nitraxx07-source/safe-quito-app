@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+    <link rel="manifest" href="./manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="./icon-100.png">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SafeQuito 2026 - Seguridad Barrial</title>
@@ -253,6 +256,13 @@
             alert("✅ Alerta enviada.");
         }, () => alert("Activa el GPS"));
     }
+    if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .then(reg => console.log('SafeQuito listo'))
+            .catch(err => console.log('Error SW', err));
+    });
+}
 </script>
 </body>
 </html>
