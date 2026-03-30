@@ -7,7 +7,6 @@
     
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#1e3c72">
-    <link rel="apple-touch-icon" href="./icon-192.png">
 
     <style>
         :root {
@@ -19,104 +18,43 @@
             --gris-suave: #f1f2f6;
         }
 
-        body { 
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
-            margin: 0; 
-            background: linear-gradient(135deg, var(--azul-oscuro) 0%, var(--azul-claro) 100%); 
-            min-height: 100vh; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            padding: 20px 0;
-        }
-
-        .container { 
-            width: 92%; 
-            max-width: 450px; 
-            background: white; 
-            padding: 30px 20px; 
-            border-radius: 25px; 
-            box-shadow: 0 20px 40px rgba(0,0,0,0.4); 
-            text-align: center; 
-            box-sizing: border-box;
-        }
-
-        /* TIPOGRAFÍA Y TÍTULOS */
-        h2 { color: var(--azul-oscuro); margin-bottom: 5px; font-size: 28px; }
-        h3 { color: #555; margin-top: 0; font-size: 18px; }
-        p.sub { font-size: 12px; color: #888; margin-bottom: 20px; }
-
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: linear-gradient(135deg, var(--azul-oscuro) 0%, var(--azul-claro) 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px 0; }
+        .container { width: 92%; max-width: 450px; background: white; padding: 25px; border-radius: 25px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); text-align: center; box-sizing: border-box; }
+        
         /* FORMULARIOS */
-        .form-group { margin-bottom: 10px; text-align: left; }
-        label { display: block; font-size: 12px; font-weight: bold; color: var(--azul-oscuro); margin-left: 5px; }
-        input { 
-            width: 100%; 
-            padding: 14px; 
-            margin: 6px 0; 
-            border: 1px solid #ddd; 
-            border-radius: 12px; 
-            box-sizing: border-box; 
-            font-size: 15px;
-            transition: 0.3s;
-        }
-        input:focus { border-color: var(--azul-oscuro); outline: none; box-shadow: 0 0 8px rgba(30,60,114,0.2); }
+        input { width: 100%; padding: 14px; margin: 6px 0; border: 1px solid #ddd; border-radius: 12px; box-sizing: border-box; font-size: 15px; }
         .row { display: flex; gap: 10px; }
+        label { display: block; font-size: 12px; font-weight: bold; color: var(--azul-oscuro); text-align: left; margin-left: 5px; margin-top: 10px; }
 
-        /* BOTONES DE ALERTA GIGANTES */
+        /* CHECKBOX Y TERMINOS */
+        .terminos-box { display: flex; align-items: flex-start; gap: 8px; margin: 15px 5px; text-align: left; font-size: 12px; color: #444; }
+        .terminos-box input { width: auto; margin: 3px 0 0 0; cursor: pointer; }
+        .link-legal { color: var(--azul-oscuro); text-decoration: underline; cursor: pointer; font-weight: bold; }
+
+        /* MODAL (VENTANA EMERGENTE) */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; }
+        .modal-content { background: white; padding: 20px; border-radius: 20px; max-width: 400px; max-height: 80vh; overflow-y: auto; text-align: left; font-size: 13px; line-height: 1.5; }
+        .modal-header { font-weight: bold; font-size: 16px; color: var(--azul-oscuro); margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        .btn-cerrar-modal { background: var(--azul-oscuro); color: white; border: none; padding: 10px; width: 100%; border-radius: 10px; margin-top: 15px; font-weight: bold; cursor: pointer; }
+
+        /* BOTONES ALERTA */
         .grid-botones { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
-        .btn-alerta { 
-            width: 100%; 
-            padding: 22px 10px; 
-            border: none; 
-            border-radius: 20px; 
-            color: white; 
-            font-weight: bold; 
-            font-size: 17px; 
-            cursor: pointer; 
-            transition: transform 0.1s, box-shadow 0.2s; 
-            box-shadow: 0 6px 12px rgba(0,0,0,0.15); 
-        }
-        .btn-alerta:active { transform: scale(0.95); }
-
-        .btn-auxilio { 
-            grid-column: span 2; 
-            background: var(--rojo-alerta); 
-            height: 130px; 
-            font-size: 28px !important; 
-            border-bottom: 8px solid #b71c1c;
-            animation: pulse-red 1.8s infinite;
-        }
-
-        @keyframes pulse-red {
-            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(214, 48, 49, 0.7); }
-            70% { transform: scale(1.02); box-shadow: 0 0 0 15px rgba(214, 48, 49, 0); }
-            100% { transform: scale(1); }
-        }
-
+        .btn-alerta { width: 100%; padding: 22px 10px; border: none; border-radius: 20px; color: white; font-weight: bold; font-size: 17px; cursor: pointer; box-shadow: 0 6px 12px rgba(0,0,0,0.15); }
+        .btn-auxilio { grid-column: span 2; background: var(--rojo-alerta); height: 110px; font-size: 26px !important; border-bottom: 6px solid #b71c1c; animation: pulse 1.8s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.02); } 100% { transform: scale(1); } }
         .btn-robo { background: var(--naranja-robo); border-bottom: 5px solid #d35400; }
         .btn-sospechoso { background: var(--amarillo-sospecha); color: #2c3e50; border-bottom: 5px solid #f39c12; }
         .btn-incendio { background: #e74c3c; border-bottom: 5px solid #c0392b; }
         .btn-accidente { background: #3498db; border-bottom: 5px solid #2980b9; }
 
-        /* PANELES DE GESTIÓN */
-        .panel-gestion { margin-top: 30px; text-align: left; background: var(--gris-suave); padding: 18px; border-radius: 20px; border: 1px solid #e1e4e8; }
-        .card-reporte { 
-            background: white; 
-            padding: 15px; 
-            border-radius: 12px; 
-            margin-bottom: 12px; 
-            border-left: 6px solid var(--azul-oscuro); 
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-        }
-        .status-badge { font-weight: bold; padding: 2px 8px; border-radius: 4px; font-size: 11px; text-transform: uppercase; }
-        .badge-pendiente { background: #ffeaa7; color: #d35400; }
-
-        /* BOTONES DE ACCIÓN */
-        button.principal { width: 100%; padding: 16px; background: var(--azul-oscuro); color: white; border: none; border-radius: 12px; font-weight: bold; font-size: 17px; cursor: pointer; margin-top: 15px; }
-        .btn-accion { padding: 8px 12px; border-radius: 8px; border: none; color: white; font-size: 12px; margin-top: 10px; cursor: pointer; font-weight: bold; margin-right: 5px; }
+        /* GESTIÓN */
+        .panel-gestion { margin-top: 30px; text-align: left; background: var(--gris-suave); padding: 15px; border-radius: 20px; border: 1px solid #ddd; }
+        .card-reporte { background: white; padding: 12px; border-radius: 12px; margin-bottom: 10px; border-left: 6px solid var(--azul-oscuro); font-size: 13px; }
         
+        button.principal { width: 100%; padding: 16px; background: var(--azul-oscuro); color: white; border: none; border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer; margin-top: 10px; }
+        .btn-accion { padding: 8px 12px; border-radius: 8px; border: none; color: white; font-size: 11px; margin-top: 8px; cursor: pointer; font-weight: bold; margin-right: 5px; }
         .oculto { display: none; }
-        .link { color: var(--azul-oscuro); cursor: pointer; display: block; margin-top: 20px; font-weight: bold; text-decoration: underline; font-size: 14px; }
+        .link { color: var(--azul-oscuro); cursor: pointer; display: block; margin-top: 15px; font-weight: bold; text-decoration: underline; }
         .btn-logout { background: #eee; border: none; color: #666; padding: 12px; border-radius: 12px; margin-top: 30px; cursor: pointer; width: 100%; font-weight: bold; }
     </style>
 </head>
@@ -124,185 +62,128 @@
 
 <div class="container">
     <h2>🛡️ SafeQuito</h2>
-    <p class="sub">Sistema de Protección Comunitaria 2026</p>
 
     <div id="seccion-login">
-        <input type="text" id="login-cedula" placeholder="Número de Cédula" maxlength="10">
+        <input type="text" id="login-cedula" placeholder="Cédula" maxlength="10">
         <input type="password" id="login-pass" placeholder="Contraseña">
-        <button class="principal" onclick="login()">INGRESAR AL SISTEMA</button>
-        <span class="link" onclick="mostrarRegistro()">¿No tienes cuenta? Regístrate aquí</span>
+        <button class="principal" onclick="login()">INGRESAR</button>
+        <span class="link" onclick="mostrarRegistro()">Registrarme como vecino</span>
     </div>
 
     <div id="seccion-registro" class="oculto">
-        <h3 style="color: var(--azul-oscuro)">Registro de Nuevo Vecino</h3>
-        
-        <label>Datos de Identidad</label>
-        <input type="text" id="reg-cedula" placeholder="Cédula (10 dígitos)" maxlength="10">
-        <div class="row">
-            <input type="text" id="reg-nombres" placeholder="Nombres">
-            <input type="text" id="reg-apellidos" placeholder="Apellidos">
-        </div>
-        
-        <label>Contacto</label>
+        <h3>Registro de Vecino</h3>
+        <input type="text" id="reg-cedula" placeholder="Cédula" maxlength="10">
+        <div class="row"><input type="text" id="reg-nombres" placeholder="Nombres"><input type="text" id="reg-apellidos" placeholder="Apellidos"></div>
         <input type="email" id="reg-correo" placeholder="Correo Electrónico">
         <input type="tel" id="reg-celular" placeholder="Número Celular">
-        
-        <label>Dirección Exacta</label>
-        <input type="text" id="reg-barrio" placeholder="Barrio / Conjunto / Sector">
+        <label>Dirección:</label>
+        <input type="text" id="reg-barrio" placeholder="Barrio / Sector">
         <input type="text" id="reg-principal" placeholder="Calle Principal">
-        <div class="row">
-            <input type="text" id="reg-secundaria" placeholder="Calle Secundaria">
-            <input type="text" id="reg-casa" placeholder="N° Casa / Lote">
+        <div class="row"><input type="text" id="reg-secundaria" placeholder="Calle Secundaria"><input type="text" id="reg-casa" placeholder="N° Casa"></div>
+        <input type="password" id="reg-pass" placeholder="Crear Contraseña">
+
+        <div class="terminos-box">
+            <input type="checkbox" id="reg-terminos">
+            <span>Acepto los <span class="link-legal" onclick="abrirModal()">Términos, Condiciones y el uso de mi GPS</span> para seguridad comunitaria.</span>
         </div>
-        
-        <label>Seguridad</label>
-        <input type="password" id="reg-pass" placeholder="Crear Contraseña Segura">
-        
-        <button class="principal" style="background:#27ae60" onclick="registrar()">FINALIZAR REGISTRO</button>
-        <span class="link" onclick="mostrarLogin()">Ya tengo cuenta, volver al inicio</span>
+
+        <button class="principal" style="background:#27ae60" onclick="registrar()">REGISTRARME</button>
+        <span class="link" onclick="mostrarLogin()">Volver</span>
     </div>
 
     <div id="seccion-app" class="oculto">
-        <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 15px;">
-            <div style="width: 10px; height: 10px; background: #27ae60; border-radius: 50%;"></div>
-            <h3 id="bienvenida" style="margin: 0;"></h3>
-        </div>
+        <h3 id="bienvenida"></h3>
 
         <div id="contenedor-botones" class="grid-botones oculto">
-            <button class="btn-alerta btn-auxilio" onclick="enviarAlerta('AUXILIO EMERGENCIA')">🚨 AUXILIO</button>
-            <button class="btn-alerta btn-robo" onclick="enviarAlerta('ROBO EN PROCESO')">🔫 ROBO</button>
+            <button class="btn-alerta btn-auxilio" onclick="enviarAlerta('AUXILIO')">🚨 AUXILIO</button>
+            <button class="btn-alerta btn-robo" onclick="enviarAlerta('ROBO')">🔫 ROBO</button>
             <button class="btn-alerta btn-sospechoso" onclick="enviarAlerta('SOSPECHOSO')">👤 SOSPECHOSO</button>
             <button class="btn-alerta btn-incendio" onclick="enviarAlerta('INCENDIO')">🔥 INCENDIO</button>
-            <button class="btn-alerta btn-accidente" onclick="enviarAlerta('ACCIDENTE VIAL')">🚑 ACCIDENTE</button>
+            <button class="btn-alerta btn-accidente" onclick="enviarAlerta('ACCIDENTE')">🚑 ACCIDENTE</button>
         </div>
 
         <div id="panel-gestion" class="panel-gestion oculto">
-            <h4 style="margin: 0 0 10px 0; color: var(--azul-oscuro); display: flex; justify-content: space-between;">
-                <span>📋 Control de Alertas</span>
-                <span style="font-size: 10px; color: #888;" id="timer-refresh">Actualizando...</span>
-            </h4>
-            <div id="lista-reportes" style="max-height: 400px; overflow-y: auto;">Cargando reportes...</div>
+            <h4>📋 Control de Alertas</h4>
+            <div id="lista-reportes">Cargando...</div>
         </div>
 
-        <div id="panel-admin" class="panel-gestion oculto" style="background: #fff5f5; border: 1px solid #feb2b2;">
-            <h4 style="color:#c53030; margin-top: 0;">⚙️ Consola de Administrador</h4>
-            <p style="font-size: 11px; margin: 5px 0;">Herramienta para borrar registros o resetear claves de vecinos:</p>
-            <input type="text" id="input-borrar" placeholder="Ingrese Cédula del Vecino">
-            <button class="principal" style="background:#c53030; margin-top: 5px;" onclick="eliminarUsuario()">BORRAR REGISTRO PERMANENTE</button>
+        <div id="panel-admin" class="panel-gestion oculto" style="background: #fff5f5;">
+            <h4 style="color:red">⚙️ Consola Admin</h4>
+            <input type="text" id="input-borrar" placeholder="Cédula a eliminar">
+            <button class="principal" style="background:#c0392b" onclick="eliminarUsuario()">ELIMINAR USUARIO</button>
         </div>
 
-        <button class="btn-logout" onclick="cerrarSesion()">CERRAR SESIÓN SEGURA</button>
+        <button class="btn-logout" onclick="cerrarSesion()">Cerrar Sesión</button>
+    </div>
+</div>
+
+<div id="modal-legal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">Aviso Legal y Privacidad (Ecuador)</div>
+        <b>1. Finalidad:</b> El uso de SafeQuito es exclusivo para seguridad ciudadana y emergencias barriales.<br><br>
+        <b>2. Datos Personales:</b> Se recolectan nombres, cédula y contacto bajo la Ley Orgánica de Protección de Datos Personales (LOPDP).<br><br>
+        <b>3. Ubicación GPS:</b> Al activar una alerta, el sistema enviará su ubicación exacta a los administradores y cuerpos de seguridad.<br><br>
+        <b>4. Responsabilidad:</b> El uso indebido o reportes falsos serán sancionados según el Art. 396 del COIP.<br><br>
+        <b>5. Derechos:</b> Usted puede solicitar la baja de sus datos en cualquier momento contactando al administrador.
+        <button class="btn-cerrar-modal" onclick="cerrarModal()">HE LEÍDO Y ENTIENDO</button>
     </div>
 </div>
 
 <script>
     const API_URL = "https://servidor-safe-quito.onrender.com/api/v1";
     let miCedula = "";
-    let miRol = "";
 
-    // INICIALIZACIÓN
     window.onload = function() {
         const c = localStorage.getItem('safe_cedula');
         const n = localStorage.getItem('safe_nombre');
         const r = localStorage.getItem('safe_rol');
-        if (c && n) {
-            miCedula = c; miRol = r;
-            lanzarApp(n, r);
-        }
+        if (c && n) { miCedula = c; lanzarApp(n, r); }
     };
+
+    // FUNCIONES MODAL
+    function abrirModal() { document.getElementById('modal-legal').style.display = 'flex'; }
+    function cerrarModal() { document.getElementById('modal-legal').style.display = 'none'; }
 
     function mostrarRegistro() { document.getElementById('seccion-login').classList.add('oculto'); document.getElementById('seccion-registro').classList.remove('oculto'); }
     function mostrarLogin() { document.getElementById('seccion-registro').classList.add('oculto'); document.getElementById('seccion-login').classList.remove('oculto'); }
-    
-    function cerrarSesion() {
-        if(confirm("¿Seguro que desea salir del sistema?")) {
-            localStorage.clear();
-            location.reload();
-        }
-    }
+    function cerrarSesion() { if(confirm("¿Salir?")) { localStorage.clear(); location.reload(); } }
 
-    // LÓGICA DE ACCESO
     async function login() {
         const cedula = document.getElementById('login-cedula').value;
         const pass = document.getElementById('login-pass').value;
-        
-        if(cedula.length < 10) return alert("Cédula incompleta");
-
-        try {
-            const res = await fetch(`${API_URL}/login`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({cedula, password: pass})
-            });
-            const data = await res.json();
-            if (data.status === "ok") {
-                miCedula = cedula; miRol = data.rol;
-                localStorage.setItem('safe_cedula', cedula);
-                localStorage.setItem('safe_nombre', data.nombre);
-                localStorage.setItem('safe_rol', data.rol);
-                lanzarApp(data.nombre, data.rol);
-            } else { alert("Error: " + data.msj); }
-        } catch (e) { alert("Sin conexión con el servidor"); }
+        const res = await fetch(`${API_URL}/login`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({cedula, password: pass})
+        });
+        const data = await res.json();
+        if (data.status === "ok") {
+            miCedula = cedula;
+            localStorage.setItem('safe_cedula', cedula);
+            localStorage.setItem('safe_nombre', data.nombre);
+            localStorage.setItem('safe_rol', data.rol);
+            lanzarApp(data.nombre, data.rol);
+        } else { alert("Error: " + data.msj); }
     }
 
     function lanzarApp(nombre, rol) {
         document.getElementById('seccion-login').classList.add('oculto');
         document.getElementById('seccion-registro').classList.add('oculto');
         document.getElementById('seccion-app').classList.remove('oculto');
-        document.getElementById('bienvenida').innerText = `${nombre}`;
+        document.getElementById('bienvenida').innerText = `Hola, ${nombre}`;
 
-        // CONFIGURACIÓN POR ROL
-        if (rol !== 'admin') {
-            document.getElementById('contenedor-botones').classList.remove('oculto');
-        }
+        if (rol !== 'admin') document.getElementById('contenedor-botones').classList.remove('oculto');
         if (rol === 'admin' || rol === 'policia' || rol === 'dirigente') {
             document.getElementById('panel-gestion').classList.remove('oculto');
             cargarReportes();
-            setInterval(cargarReportes, 20000); // Auto-refresh cada 20 seg
+            setInterval(cargarReportes, 20000);
         }
-        if (rol === 'admin') {
-            document.getElementById('panel-admin').classList.remove('oculto');
-        }
+        if (rol === 'admin') document.getElementById('panel-admin').classList.remove('oculto');
     }
 
-    // GESTIÓN DE REPORTES
-    async function cargarReportes() {
-        try {
-            const res = await fetch(`${API_URL}/reportes`, { headers: {'X-Usuario-Cedula': miCedula} });
-            const reportes = await res.json();
-            let html = "";
-            reportes.forEach(r => {
-                html += `
-                <div class="card-reporte">
-                    <div style="display:flex; justify-content:space-between;">
-                        <b>${r.tipo_alerta}</b>
-                        <span class="status-badge badge-pendiente">${r.estado}</span>
-                    </div>
-                    <div style="font-size:11px; margin-top:5px; color:#444;">
-                        👤 ${r.nombre_completo} | 🏠 ${r.barrio}<br>
-                        📍 <a href="https://www.google.com/maps?q=${r.gps}" target="_blank" style="color:var(--azul-oscuro); font-weight:bold;">UBICACIÓN GPS</a>
-                    </div>
-                    <div style="border-top:1px solid #eee; margin-top:8px; padding-top:5px;">
-                        <button class="btn-accion" style="background:#2980b9" onclick="cambiarEstado(${r.id}, 'En curso')">Atender</button>
-                        <button class="btn-accion" style="background:#27ae60" onclick="cambiarEstado(${r.id}, 'Atendido')">Finalizar</button>
-                    </div>
-                </div>`;
-            });
-            document.getElementById('lista-reportes').innerHTML = html || "<p style='font-size:12px; color:gray;'>No hay alertas activas en el barrio.</p>";
-        } catch(e) { console.error("Error cargando reportes"); }
-    }
-
-    async function cambiarEstado(id, nuevo) {
-        await fetch(`${API_URL}/reportes/${id}`, {
-            method: 'PUT',
-            headers: {'Content-Type': 'application/json', 'X-Usuario-Cedula': miCedula},
-            body: JSON.stringify({estado: nuevo})
-        });
-        cargarReportes();
-    }
-
-    // FUNCIONES DE REGISTRO Y ADMIN
     async function registrar() {
+        if (!document.getElementById('reg-terminos').checked) return alert("Debe aceptar los términos y el uso de GPS para continuar.");
+
         const datos = {
             cedula: document.getElementById('reg-cedula').value,
             nombres: document.getElementById('reg-nombres').value,
@@ -316,49 +197,61 @@
             password: document.getElementById('reg-pass').value
         };
 
-        if(!datos.cedula || !datos.password) return alert("Cédula y Clave son obligatorios");
+        const res = await fetch(`${API_URL}/registrar`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(datos)
+        });
+        if (res.ok) { alert("¡Registro exitoso!"); mostrarLogin(); }
+        else { alert("Error al registrar (Cédula duplicada)"); }
+    }
 
+    async function cargarReportes() {
         try {
-            const res = await fetch(`${API_URL}/registrar`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(datos)
+            const res = await fetch(`${API_URL}/reportes`, { headers: {'X-Usuario-Cedula': miCedula} });
+            const reportes = await res.json();
+            let html = "";
+            reportes.forEach(r => {
+                html += `
+                <div class="card-reporte">
+                    <b>${r.tipo_alerta}</b> - <span style="color:red">${r.estado}</span><br>
+                    <small>${r.nombre_completo} | 🏠 ${r.barrio}</small><br>
+                    <small>📍 <a href="https://www.google.com/maps?q=${r.gps}" target="_blank" style="color:var(--azul-oscuro); font-weight:bold;">VER GPS</a></small><br>
+                    <button class="btn-accion" style="background:#2980b9" onclick="cambiarEstado(${r.id}, 'En curso')">Atender</button>
+                    <button class="btn-accion" style="background:#27ae60" onclick="cambiarEstado(${r.id}, 'Finalizar')">Finalizar</button>
+                </div>`;
             });
-            if (res.ok) { 
-                alert("¡Excelente! Te has registrado correctamente."); 
-                mostrarLogin(); 
-            } else { alert("La cédula ya está registrada o hubo un error."); }
-        } catch (e) { alert("Error de conexión"); }
+            document.getElementById('lista-reportes').innerHTML = html || "Sin alertas.";
+        } catch(e) {}
+    }
+
+    async function cambiarEstado(id, nuevo) {
+        await fetch(`${API_URL}/reportes/${id}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json', 'X-Usuario-Cedula': miCedula},
+            body: JSON.stringify({estado: nuevo})
+        });
+        cargarReportes();
     }
 
     async function eliminarUsuario() {
         const target = document.getElementById('input-borrar').value;
-        if (!target || !confirm(`¿Está totalmente seguro de ELIMINAR al usuario ${target}? Esta acción no se puede deshacer.`)) return;
-        
-        const res = await fetch(`${API_URL}/usuarios/${target}`, {
-            method: 'DELETE',
-            headers: {'X-Admin-Cedula': miCedula}
-        });
-        const data = await res.json();
-        alert(data.msj);
+        if (!target || !confirm(`¿Borrar usuario ${target}?`)) return;
+        await fetch(`${API_URL}/usuarios/${target}`, { method: 'DELETE', headers: {'X-Admin-Cedula': miCedula} });
+        alert("Usuario eliminado.");
     }
 
-    // ENVÍO DE ALERTA
     function enviarAlerta(tipo) {
-        if (!confirm(`¿CONFIRMAR ENVÍO DE ALERTA: ${tipo}?`)) return;
-        
+        if (!confirm(`¿Enviar alerta de ${tipo}?`)) return;
         navigator.geolocation.getCurrentPosition(async (pos) => {
             const gps = `${pos.coords.latitude},${pos.coords.longitude}`;
-            try {
-                await fetch(`${API_URL}/reportar`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({cedula: miCedula, tipo, gps})
-                });
-                alert("✅ ALERTA RECIBIDA. Los dirigentes y la policía han sido notificados.");
-                if (miRol !== 'vecino') cargarReportes();
-            } catch(e) { alert("Error al enviar la señal de auxilio."); }
-        }, () => alert("ERROR: Debes activar el GPS para que podamos ubicarte en la emergencia."));
+            await fetch(`${API_URL}/reportar`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({cedula: miCedula, tipo, gps})
+            });
+            alert("✅ Alerta enviada.");
+        }, () => alert("Activa el GPS"));
     }
 </script>
 </body>
