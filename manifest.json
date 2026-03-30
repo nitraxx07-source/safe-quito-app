@@ -1,0 +1,19 @@
+{
+  "short_name": "SafeQuito",
+  "name": "SafeQuito 2026 - Seguridad Barrial",
+  "description": "Sistema de alertas comunitarias y protección ciudadana para los barrios de Quito.",
+  "icons": [
+    {
+      "src": "./icon-100.png",
+      "type": "image/png",
+      "sizes": "192x192 512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1e3c72",
+  "theme_color": "#1e3c72",
+  "lang": "es-EC"
+}
