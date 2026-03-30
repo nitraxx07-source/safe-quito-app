@@ -27,6 +27,11 @@
         .row { display: flex; gap: 10px; }
         label { display: block; font-size: 12px; font-weight: bold; color: var(--azul-oscuro); text-align: left; margin-left: 5px; margin-top: 10px; }
 
+        /* Spinner de carga */
+        .spinner { display: none; width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s linear infinite; margin: 0 auto; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        button:disabled { background: #95a5a6 !important; cursor: not-allowed; }
+
         .terminos-box { display: flex; align-items: flex-start; gap: 8px; margin: 15px 5px; text-align: left; font-size: 12px; color: #444; }
         .terminos-box input { width: auto; margin: 3px 0 0 0; cursor: pointer; }
         .link-legal { color: var(--azul-oscuro); text-decoration: underline; cursor: pointer; font-weight: bold; }
@@ -49,7 +54,7 @@
         .card-reporte { background: white; padding: 12px; border-radius: 12px; margin-bottom: 10px; border-left: 6px solid var(--azul-oscuro); font-size: 13px; position: relative; }
         .badge-pendiente { background: var(--rojo-alerta); color: white; padding: 2px 6px; border-radius: 6px; font-size: 10px; font-weight: bold; position: absolute; right: 10px; top: 10px; }
         
-        button.principal { width: 100%; padding: 16px; background: var(--azul-oscuro); color: white; border: none; border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer; margin-top: 10px; }
+        button.principal { width: 100%; padding: 16px; background: var(--azul-oscuro); color: white; border: none; border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer; margin-top: 10px; display: flex; align-items: center; justify-content: center; }
         .btn-accion { padding: 10px; border-radius: 8px; border: none; color: white; font-size: 11px; margin-top: 10px; cursor: pointer; font-weight: bold; width: 48%; }
         
         .oculto { display: none; }
@@ -65,7 +70,10 @@
     <div id="seccion-login">
         <input type="text" id="login-cedula" placeholder="Cédula" maxlength="10">
         <input type="password" id="login-pass" placeholder="Contraseña">
-        <button class="principal" onclick="login()">INGRESAR</button>
+        <button class="principal" id="btn-login" onclick="login()">
+            <span id="text-login">INGRESAR</span>
+            <div id="loader-login" class="spinner"></div>
+        </button>
         <span class="link" onclick="mostrarRegistro()">Registrarme como vecino</span>
     </div>
 
@@ -102,7 +110,7 @@
         </div>
 
         <div id="panel-gestion" class="panel-gestion oculto">
-            <h4 style="display:flex; justify-content:space-between;">
+            <h4 style="display:flex; justify-content:space-between; margin:0 0 10px 0;">
                 <span>📋 Alertas Pendientes</span>
                 <span id="contador" style="background:red; color:white; padding:2px 8px; border-radius:10px; font-size:12px;">0</span>
             </h4>
@@ -122,12 +130,10 @@
 <div id="modal-legal" class="modal">
     <div class="modal-content">
         <div class="modal-header">Aviso Legal y Privacidad (Ecuador)</div>
-        <b>1. Finalidad:</b> El uso de SafeQuito es exclusivo para seguridad ciudadana y emergencias barriales.<br><br>
-        <b>2. Datos Personales:</b> Se recolectan nombres, cédula y contacto bajo la Ley Orgánica de Protección de Datos Personales (LOPDP).<br><br>
-        <b>3. Ubicación GPS:</b> Al activar una alerta, el sistema enviará su ubicación exacta a los administradores y cuerpos de seguridad.<br><br>
-        <b>4. Responsabilidad:</b> El uso indebido o reportes falsos serán sancionados según el Art. 396 del COIP.<br><br>
-        <b>5. Derechos:</b> Usted puede solicitar la baja de sus datos en cualquier momento contactando al administrador.
-        <button class="btn-cerrar-modal" onclick="cerrarModal()">HE LEÍDO Y ENTIENDO</button>
+        <p><b>1. Finalidad:</b> Uso exclusivo para emergencias barriales.</p>
+        <p><b>2. Datos:</b> Recolección bajo la LOPDP.</p>
+        <p><b>3. GPS:</b> Envío de ubicación exacta al activar alertas.</p>
+        <button class="btn-cerrar-modal" onclick="cerrarModal()">ENTENDIDO</button>
     </div>
 </div>
 
@@ -149,21 +155,39 @@
     function cerrarSesion() { if(confirm("¿Salir?")) { localStorage.clear(); location.reload(); } }
 
     async function login() {
+        const btn = document.getElementById('btn-login');
+        const text = document.getElementById('text-login');
+        const loader = document.getElementById('loader-login');
         const cedula = document.getElementById('login-cedula').value;
         const pass = document.getElementById('login-pass').value;
-        const res = await fetch(`${API_URL}/login`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({cedula, password: pass})
-        });
-        const data = await res.json();
-        if (data.status === "ok") {
-            miCedula = cedula;
-            localStorage.setItem('safe_cedula', cedula);
-            localStorage.setItem('safe_nombre', data.nombre);
-            localStorage.setItem('safe_rol', data.rol);
-            lanzarApp(data.nombre, data.rol);
-        } else { alert("Error: " + data.msj); }
+
+        if (!cedula || !pass) return alert("Ingrese sus credenciales.");
+
+        btn.disabled = true;
+        text.style.display = 'none';
+        loader.style.display = 'block';
+
+        try {
+            const res = await fetch(`${API_URL}/login`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({cedula, password: pass})
+            });
+            const data = await res.json();
+            if (data.status === "ok") {
+                miCedula = cedula;
+                localStorage.setItem('safe_cedula', cedula);
+                localStorage.setItem('safe_nombre', data.nombre);
+                localStorage.setItem('safe_rol', data.rol);
+                lanzarApp(data.nombre, data.rol);
+            } else { alert("Error: " + data.msj); }
+        } catch(e) {
+            alert("Error de conexión. El servidor podría estar despertando, intenta de nuevo en unos segundos.");
+        } finally {
+            btn.disabled = false;
+            text.style.display = 'block';
+            loader.style.display = 'none';
+        }
     }
 
     function lanzarApp(nombre, rol) {
@@ -172,19 +196,56 @@
         document.getElementById('seccion-app').classList.remove('oculto');
         document.getElementById('bienvenida').innerText = `Hola, ${nombre}`;
 
+        // Los vecinos (rol vacío o 'vecino') NO ven el panel de gestión
         if (rol !== 'admin') document.getElementById('contenedor-botones').classList.remove('oculto');
         
-        // ADMIN Y DIRIGENTES ven el panel
+        // Admin, Dirigente y Policia ven la gestión
         if (rol === 'admin' || rol === 'policia' || rol === 'dirigente') {
             document.getElementById('panel-gestion').classList.remove('oculto');
             cargarReportes();
-            setInterval(cargarReportes, 20000);
+            setInterval(cargarReportes, 15000);
         }
         if (rol === 'admin') document.getElementById('panel-admin').classList.remove('oculto');
     }
 
+    async function cargarReportes() {
+        try {
+            const res = await fetch(`${API_URL}/reportes`, { headers: {'X-Usuario-Cedula': miCedula} });
+            const reportes = await res.json();
+            const pendientes = reportes.filter(r => r.estado === 'Pendiente');
+            document.getElementById('contador').innerText = pendientes.length;
+
+            let html = "";
+            pendientes.forEach(r => {
+                html += `
+                <div class="card-reporte">
+                    <span class="badge-pendiente">PENDIENTE</span>
+                    <b>${r.tipo_alerta}</b><br>
+                    <small>${r.nombre_completo} | 🏠 ${r.barrio}</small><br>
+                    <small>📍 <a href="https://www.google.com/maps?q=${r.gps}" target="_blank" style="color:var(--azul-oscuro); font-weight:bold;">UBICACIÓN</a></small><br>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn-accion" style="background:#2980b9" onclick="cambiarEstado(${r.id}, 'En transcurso')">EN CURSO</button>
+                        <button class="btn-accion" style="background:#27ae60" onclick="cambiarEstado(${r.id}, 'Atendido')">ATENDIDO</button>
+                    </div>
+                </div>`;
+            });
+            document.getElementById('lista-reportes').innerHTML = html || "<p style='font-size:12px;color:gray;text-align:center;'>No hay alertas.</p>";
+        } catch(e) { console.log("Error al cargar reportes"); }
+    }
+
+    async function cambiarEstado(id, nuevo) {
+        try {
+            await fetch(`${API_URL}/reportes/${id}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json', 'X-Usuario-Cedula': miCedula},
+                body: JSON.stringify({estado: nuevo})
+            });
+            cargarReportes();
+        } catch(e) { alert("Error al actualizar"); }
+    }
+
     async function registrar() {
-        if (!document.getElementById('reg-terminos').checked) return alert("Debe aceptar los términos.");
+        if (!document.getElementById('reg-terminos').checked) return alert("Acepta los términos.");
         const datos = {
             cedula: document.getElementById('reg-cedula').value,
             nombres: document.getElementById('reg-nombres').value,
@@ -197,49 +258,15 @@
             numero_casa: document.getElementById('reg-casa').value,
             password: document.getElementById('reg-pass').value
         };
-        const res = await fetch(`${API_URL}/registrar`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(datos)
-        });
-        if (res.ok) { alert("¡Registro exitoso!"); mostrarLogin(); }
-        else { alert("Error al registrar"); }
-    }
-
-    async function cargarReportes() {
         try {
-            const res = await fetch(`${API_URL}/reportes`, { headers: {'X-Usuario-Cedula': miCedula} });
-            const reportes = await res.json();
-            
-            // Solo mostramos los que están "Pendiente"
-            const pendientes = reportes.filter(r => r.estado === 'Pendiente');
-            document.getElementById('contador').innerText = pendientes.length;
-
-            let html = "";
-            pendientes.forEach(r => {
-                html += `
-                <div class="card-reporte">
-                    <span class="badge-pendiente">PENDIENTE</span>
-                    <b>${r.tipo_alerta}</b><br>
-                    <small>${r.nombre_completo} | 🏠 ${r.barrio}</small><br>
-                    <small>📍 <a href="https://www.google.com/maps?q=${r.gps}" target="_blank" style="color:var(--azul-oscuro); font-weight:bold;">VER UBICACIÓN</a></small><br>
-                    <div style="display:flex; gap:10px;">
-                        <button class="btn-accion" style="background:#2980b9" onclick="cambiarEstado(${r.id}, 'En transcurso')">EN TRANSCURSO</button>
-                        <button class="btn-atendido btn-accion" style="background:#27ae60" onclick="cambiarEstado(${r.id}, 'Atendido')">ATENDIDO</button>
-                    </div>
-                </div>`;
+            const res = await fetch(`${API_URL}/registrar`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(datos)
             });
-            document.getElementById('lista-reportes').innerHTML = html || "No hay alertas pendientes.";
-        } catch(e) {}
-    }
-
-    async function cambiarEstado(id, nuevo) {
-        await fetch(`${API_URL}/reportes/${id}`, {
-            method: 'PUT',
-            headers: {'Content-Type': 'application/json', 'X-Usuario-Cedula': miCedula},
-            body: JSON.stringify({estado: nuevo})
-        });
-        cargarReportes(); // El reporte desaparecerá de la lista al cambiar de estado
+            if (res.ok) { alert("¡Registro exitoso!"); mostrarLogin(); }
+            else { alert("Error al registrar (Cédula duplicada)"); }
+        } catch(e) { alert("Error de red"); }
     }
 
     async function eliminarUsuario() {
@@ -253,21 +280,20 @@
         if (!confirm(`¿Enviar alerta de ${tipo}?`)) return;
         navigator.geolocation.getCurrentPosition(async (pos) => {
             const gps = `${pos.coords.latitude},${pos.coords.longitude}`;
-            await fetch(`${API_URL}/reportar`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({cedula: miCedula, tipo, gps})
-            });
-            alert("✅ Alerta enviada.");
+            try {
+                await fetch(`${API_URL}/reportar`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({cedula: miCedula, tipo, gps})
+                });
+                alert("✅ Alerta enviada.");
+            } catch(e) { alert("Error al enviar."); }
         }, () => alert("Activa el GPS"));
     }
 
-    // REGISTRO DEL SERVICE WORKER (PWA)
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js')
-                .then(reg => console.log('SafeQuito SW Registrado'))
-                .catch(err => console.log('Error SW', err));
+            navigator.serviceWorker.register('./sw.js').catch(err => console.log('Error SW', err));
         });
     }
 </script>
