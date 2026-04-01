@@ -144,7 +144,6 @@
 </div>
 
 <script>
-    // URL de Render con HTTPS forzado
     const API_URL = "https://servidor-safe-quito.onrender.com/api/v1";
     let miCedula = "";
 
@@ -203,7 +202,6 @@
         document.getElementById('seccion-app').classList.remove('oculto');
         document.getElementById('bienvenida').innerText = `Hola, ${nombre}`;
 
-        // Los vecinos ven botones, los admin/policía no
         if (rol === 'vecino') {
             document.getElementById('contenedor-botones').classList.remove('oculto');
         }
@@ -225,7 +223,6 @@
 
             let html = "";
             pendientes.forEach(r => {
-                // Link corregido a HTTPS para evitar bloqueos
                 const mapaLink = `https://www.google.com/maps?q=${r.gps}`;
                 html += `
                 <div class="card-reporte">
@@ -300,57 +297,49 @@
         }, () => alert("📍 Activa el GPS."), {enableHighAccuracy: true});
     }
 
-    // REGISTRO DE SERVICE WORKER CORREGIDO PARA GITHUB PAGES
+    // --- LÓGICA DE NOTIFICACIONES PUSH ---
+
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            // Scope dinámico para evitar el error de HTTPS/Ruta
             navigator.serviceWorker.register('sw.js', { scope: './' })
-                .then(reg => console.log('SW registrado', reg))
+                .then(reg => console.log('SW registrado'))
                 .catch(err => console.error('Error SW', err));
         });
     }
 
-    // SUSCRIPCIÓN PUSH CORREGIDA
-    // FUNCIÓN AUXILIAR: Traduce la llave VAPID para que Android la entienda
- function urlBase64ToUint8Array(base64String) {
-    // Esta línea es nueva y vital: limpia la llave antes de procesarla
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding)
-        .replace(/\-/g, '+')
-        .replace(/_/g, '/');
-
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
-
-    for (let i = 0; i < rawData.length; ++i) {
-        outputArray[i] = rawData.charCodeAt(i);
+    function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
     }
-    return outputArray;
-}
 
-    // SUSCRIPCIÓN PUSH CORREGIDA PARA ANDROID
-   function urlBase64ToUint8Array(base64String) {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding)
-        .replace(/\-/g, '+')
-        .replace(/_/g, '/');
+    async function activarAlertasSeguridad() {
+        try {
+            const cedulaTemp = miCedula || localStorage.getItem('safe_cedula');
+            if(!cedulaTemp) return alert("Inicia sesión primero.");
 
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
+            const permiso = await Notification.requestPermission();
+            if (permiso !== 'granted') return alert("Permiso denegado.");
 
-    for (let i = 0; i < rawData.length; ++i) {
-        outputArray[i] = rawData.charCodeAt(i);
-    }
-    return outputArray;
-}
+            const registro = await navigator.serviceWorker.ready;
             
-       // TU LLAVE VAPID PÚBLICA REAL (Sin los == al final)
-const publicVapidKey = '5RbUTkxy246ha1ZtLeyHBeGg1clWHjjlPU0C2+k0ks0JAchSK2q0Eh4W6vPzWxBT6p6RMKeeSztwy+vGpSMWlw=';
+            // Limpieza de suscripciones previas
+            const suscripcionExistente = await registro.pushManager.getSubscription();
+            if (suscripcionExistente) {
+                await suscripcionExistente.unsubscribe();
+            }
+            
+            const publicVapidKey = '5RbUTkxy246ha1ZtLeyHBeGg1clWHjjlPU0C2+k0ks0JAchSK2q0Eh4W6vPzWxBT6p6RMKeeSztwy+vGpSMWlw=';
             const convertedVapidKey = urlBase64ToUint8Array(publicVapidKey);
 
             const suscripcion = await registro.pushManager.subscribe({
                 userVisibleOnly: true,
-                applicationServerKey: convertedVapidKey // <--- Pasamos la llave convertida
+                applicationServerKey: convertedVapidKey
             });
 
             const respuesta = await fetch(`${API_URL}/suscribir`, {
@@ -366,13 +355,15 @@ const publicVapidKey = '5RbUTkxy246ha1ZtLeyHBeGg1clWHjjlPU0C2+k0ks0JAchSK2q0Eh4W
                 alert("✅ Notificaciones activadas.");
                 document.getElementById('config-notificaciones').style.display = 'none';
             } else {
-                alert("❌ Error en el servidor al guardar la suscripción.");
+                alert("❌ Error en el servidor al suscribir.");
             }
         } catch (error) {
-            console.error("Error real de la suscripción:", error);
-            alert("Error al suscribirse: " + error.message);
+            console.error("Error en suscripción:", error);
+            alert("Error: " + error.message);
         }
     }
 </script>
+</body>
+</html>
 </body>
 </html>
