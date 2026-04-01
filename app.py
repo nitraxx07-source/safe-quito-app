@@ -18,6 +18,8 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # CONFIGURACIÓN VAPID (Notificaciones Push)
 # Estas deben estar en las variables de entorno de Render
 VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY")
+# Añade esta línea debajo de VAPID_PRIVATE_KEY en app.py
+VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY")
 VAPID_CLAIMS = {"sub": "mailto:soporte@safequito.com"}
 
 @app.route('/')
