@@ -345,6 +345,48 @@
         });
         alert("✅ Notificaciones activadas.");
     }
+        async function activarAlertasSeguridad() {
+    try {
+        // 1. Pedir permiso al vecino
+        const permiso = await Notification.requestPermission();
+        
+        if (permiso !== 'granted') {
+            alert("⚠️ Has bloqueado las notificaciones. Para recibirlas, actívalas en la configuración de tu navegador.");
+            return;
+        }
+
+        // 2. Preparar el Service Worker
+        const registro = await navigator.serviceWorker.ready;
+        
+        // 3. Generar la suscripción única del celular
+        // IMPORTANTE: Reemplaza con tu VAPID_PUBLIC_KEY real
+        const suscripcion = await registro.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: 'BHg_YmZ5Q1hWSlZRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0x'
+        });
+
+        // 4. Enviar a tu servidor en Render (Python)
+        const respuesta = await fetch(`${API_URL}/api/v1/suscribir`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                cedula: localStorage.getItem('cedula_safequito'), // Asegúrate de que guardas la cédula al loguear
+                subscription: suscripcion
+            })
+        });
+
+        if (respuesta.ok) {
+            alert("✅ ¡Listo! Ahora recibirás alertas aunque la app esté cerrada.");
+            document.getElementById('config-notificaciones').style.display = 'none'; // Ocultar tras éxito
+        } else {
+            alert("❌ Hubo un error al registrar el dispositivo.");
+        }
+        
+    } catch (error) {
+        console.error("Error en suscripción:", error);
+        alert("Hubo un problema al activar las notificaciones. Verifica que estés usando HTTPS.");
+    }
+}
 }
 </script>
 </body>
