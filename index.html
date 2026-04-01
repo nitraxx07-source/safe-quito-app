@@ -315,6 +315,31 @@
             navigator.serviceWorker.register('./sw.js').catch(err => console.log('Error SW', err));
         });
     }
+    async function solicitarPermisoNotificaciones() {
+    // 1. Pedir permiso al usuario
+    const permiso = await Notification.requestPermission();
+    
+    if (permiso === 'granted') {
+        const reg = await navigator.serviceWorker.ready;
+        
+        // 2. Suscribir al vecino usando la Llave PÚBLICA
+        const sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: 'BHg_YmZ5Q1hWSlZRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0x'
+        });
+
+        // 3. Enviar la suscripción a tu servidor de Render para guardarla en Supabase
+        await fetch(`${API_URL}/api/v1/suscribir`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                cedula: miCedula, // Usamos la cédula del login
+                subscription: sub
+            })
+        });
+        alert("✅ Notificaciones activadas.");
+    }
+}
 </script>
 </body>
 </html>
