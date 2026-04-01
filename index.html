@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SafeQuito 2026 - Seguridad Barrial</title>
     
-    <link rel="manifest" href="./manifest.json">
+    <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <link rel="apple-touch-icon" href="./icon-100.png">
+    <link rel="apple-touch-icon" href="icon-100.png">
     <meta name="theme-color" content="#1e3c72">
 
     <style>
@@ -120,12 +120,13 @@
             <h4 style="color:red">⚙️ Consola Admin</h4>
             <input type="text" id="input-borrar" placeholder="Cédula a eliminar">
             <button class="principal" style="background:#c0392b" onclick="eliminarUsuario()">ELIMINAR USUARIO</button>
-            <div id="config-notificaciones" style="margin-top: 30px; padding: 15px; background: #f0f4f8; border-radius: 15px; text-align: center;">
-    <p style="font-size: 13px; color: #555; margin-bottom: 10px;">🔔 ¿Quieres recibir avisos de emergencia en tu celular?</p>
-    <button onclick="activarAlertasSeguridad()" style="background: #34495e; color: white; border: none; padding: 10px 20px; border-radius: 10px; font-weight: bold; cursor: pointer;">
-        ACTIVAR NOTIFICACIONES
-    </button>
-</div>
+        </div>
+
+        <div id="config-notificaciones" style="margin-top: 30px; padding: 15px; background: #f0f4f8; border-radius: 15px; text-align: center;">
+            <p style="font-size: 13px; color: #555; margin-bottom: 10px;">🔔 ¿Quieres recibir avisos de emergencia en tu celular?</p>
+            <button onclick="activarAlertasSeguridad()" style="background: #34495e; color: white; border: none; padding: 10px 20px; border-radius: 10px; font-weight: bold; cursor: pointer;">
+                ACTIVAR NOTIFICACIONES
+            </button>
         </div>
 
         <button class="btn-logout" onclick="cerrarSesion()">Cerrar Sesión</button>
@@ -143,14 +144,15 @@
 </div>
 
 <script>
+    // URL de Render con HTTPS forzado
     const API_URL = "https://servidor-safe-quito.onrender.com/api/v1";
     let miCedula = "";
 
     window.onload = function() {
-        const c = localStorage.getItem('safe_cedula');
+        miCedula = localStorage.getItem('safe_cedula');
         const n = localStorage.getItem('safe_nombre');
         const r = localStorage.getItem('safe_rol');
-        if (c && n) { miCedula = c; lanzarApp(n, r); }
+        if (miCedula && n) { lanzarApp(n, r); }
     };
 
     function abrirModal() { document.getElementById('modal-legal').style.display = 'flex'; }
@@ -187,7 +189,7 @@
                 lanzarApp(data.nombre, data.rol);
             } else { alert("Error: " + data.msj); }
         } catch(e) {
-            alert("Error de conexión. El servidor podría estar despertando, intenta de nuevo en unos segundos.");
+            alert("Error de conexión. Intenta de nuevo.");
         } finally {
             btn.disabled = false;
             text.style.display = 'block';
@@ -201,12 +203,15 @@
         document.getElementById('seccion-app').classList.remove('oculto');
         document.getElementById('bienvenida').innerText = `Hola, ${nombre}`;
 
-        if (rol !== 'admin') document.getElementById('contenedor-botones').classList.remove('oculto');
+        // Los vecinos ven botones, los admin/policía no
+        if (rol === 'vecino') {
+            document.getElementById('contenedor-botones').classList.remove('oculto');
+        }
         
         if (rol === 'admin' || rol === 'policia' || rol === 'dirigente') {
             document.getElementById('panel-gestion').classList.remove('oculto');
             cargarReportes();
-            setInterval(cargarReportes, 10000); // Actualización cada 10 segundos
+            setInterval(cargarReportes, 10000); 
         }
         if (rol === 'admin') document.getElementById('panel-admin').classList.remove('oculto');
     }
@@ -220,7 +225,7 @@
 
             let html = "";
             pendientes.forEach(r => {
-                // Corrección del enlace de Google Maps
+                // Link corregido a HTTPS para evitar bloqueos
                 const mapaLink = `https://www.google.com/maps?q=${r.gps}`;
                 html += `
                 <div class="card-reporte">
@@ -270,26 +275,15 @@
                 body: JSON.stringify(datos)
             });
             if (res.ok) { alert("¡Registro exitoso!"); mostrarLogin(); }
-            else { alert("Error al registrar (Cédula duplicada)"); }
+            else { alert("Error al registrar."); }
         } catch(e) { alert("Error de red"); }
     }
 
-    async function eliminarUsuario() {
-        const target = document.getElementById('input-borrar').value;
-        if (!target || !confirm(`¿Borrar usuario ${target}?`)) return;
-        try {
-            const res = await fetch(`${API_URL}/usuarios/${target}`, { method: 'DELETE', headers: {'X-Admin-Cedula': miCedula} });
-            if(res.ok) { alert("Usuario eliminado."); document.getElementById('input-borrar').value = ""; }
-        } catch(e) { alert("Error al eliminar."); }
-    }
-
-   // FUNCIÓN DE ALERTA ACTUALIZADA PARA SUPABASE
     async function enviarAlerta(tipo) {
         if (!confirm(`¿Enviar alerta de ${tipo}?`)) return;
 
         navigator.geolocation.getCurrentPosition(async (pos) => {
             const gps = `${pos.coords.latitude},${pos.coords.longitude}`;
-            
             try {
                 const res = await fetch(`${API_URL}/reportar`, {
                     method: 'POST',
@@ -300,41 +294,35 @@
                         gps: gps
                     })
                 });
-
-                if (res.ok) {
-                    alert("✅ Alerta enviada y confirmada en sistema.");
-                    const rol = localStorage.getItem('safe_rol');
-                    if (rol === 'admin' || rol === 'policia' || rol === 'dirigente') cargarReportes();
-                } else {
-                    const err = await res.json();
-                    alert("❌ Error: " + (err.msj || "No se pudo enviar."));
-                }
-            } catch(e) { 
-                alert("📡 Error de red: El servidor está tardando en responder."); 
-            }
-        }, () => alert("📍 Por favor activa el GPS de tu celular para enviar la alerta."), {enableHighAccuracy: true});
+                if (res.ok) alert("✅ Alerta enviada.");
+                else alert("❌ Error al enviar.");
+            } catch(e) { alert("📡 Error de red."); }
+        }, () => alert("📍 Activa el GPS."), {enableHighAccuracy: true});
     }
 
-    // REGISTRO DE SERVICE WORKER
+    // REGISTRO DE SERVICE WORKER CORREGIDO PARA GITHUB PAGES
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js').catch(err => console.log('Error SW', err));
+            // Scope dinámico para evitar el error de HTTPS/Ruta
+            navigator.serviceWorker.register('sw.js', { scope: './' })
+                .then(reg => console.log('SW registrado', reg))
+                .catch(err => console.error('Error SW', err));
         });
     }
 
-    // ACTIVAR NOTIFICACIONES PUSH
+    // SUSCRIPCIÓN PUSH CORREGIDA
     async function activarAlertasSeguridad() {
         try {
+            // Validar Cédula antes de nada
+            const cedulaTemp = miCedula || localStorage.getItem('safe_cedula');
+            if(!cedulaTemp) return alert("Inicia sesión primero.");
+
             const permiso = await Notification.requestPermission();
-            
-            if (permiso !== 'granted') {
-                alert("⚠️ Has bloqueado las notificaciones. Actívalas en la configuración del sitio.");
-                return;
-            }
+            if (permiso !== 'granted') return alert("Permiso denegado.");
 
             const registro = await navigator.serviceWorker.ready;
             
-            // USAR TU VAPID PUBLIC KEY AQUÍ
+            // TU LLAVE VAPID PÚBLICA
             const suscripcion = await registro.pushManager.subscribe({
                 userVisibleOnly: true,
                 applicationServerKey: 'BHg_YmZ5Q1hWSlZRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0x'
@@ -344,21 +332,20 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    cedula: miCedula, // Usamos la variable global ya cargada
+                    cedula: cedulaTemp,
                     subscription: suscripcion
                 })
             });
 
             if (respuesta.ok) {
-                alert("✅ ¡Listo! Recibirás alertas de emergencia.");
+                alert("✅ Notificaciones activadas.");
                 document.getElementById('config-notificaciones').style.display = 'none';
             } else {
-                alert("❌ Error al registrar el dispositivo en el servidor.");
+                alert("❌ Error en el servidor.");
             }
-            
         } catch (error) {
-            console.error("Error en suscripción:", error);
-            alert("Hubo un problema. Asegúrate de estar usando HTTPS.");
+            console.error(error);
+            alert("Error: Asegúrate de estar en HTTPS y que el archivo sw.js esté en tu GitHub.");
         }
     }
 </script>
