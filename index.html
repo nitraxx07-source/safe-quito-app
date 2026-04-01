@@ -283,7 +283,7 @@
         } catch(e) { alert("Error al eliminar."); }
     }
 
-    // FUNCIÓN DE ALERTA ACTUALIZADA PARA SUPABASE
+   // FUNCIÓN DE ALERTA ACTUALIZADA PARA SUPABASE
     async function enviarAlerta(tipo) {
         if (!confirm(`¿Enviar alerta de ${tipo}?`)) return;
 
@@ -303,7 +303,6 @@
 
                 if (res.ok) {
                     alert("✅ Alerta enviada y confirmada en sistema.");
-                    // Si el usuario tiene panel de gestión, recargar para ver su propia alerta
                     const rol = localStorage.getItem('safe_rol');
                     if (rol === 'admin' || rol === 'policia' || rol === 'dirigente') cargarReportes();
                 } else {
@@ -316,78 +315,52 @@
         }, () => alert("📍 Por favor activa el GPS de tu celular para enviar la alerta."), {enableHighAccuracy: true});
     }
 
+    // REGISTRO DE SERVICE WORKER
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('./sw.js').catch(err => console.log('Error SW', err));
         });
     }
-    async function solicitarPermisoNotificaciones() {
-    // 1. Pedir permiso al usuario
-    const permiso = await Notification.requestPermission();
-    
-    if (permiso === 'granted') {
-        const reg = await navigator.serviceWorker.ready;
-        
-        // 2. Suscribir al vecino usando la Llave PÚBLICA
-        const sub = await reg.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: 'BHg_YmZ5Q1hWSlZRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0x'
-        });
 
-        // 3. Enviar la suscripción a tu servidor de Render para guardarla en Supabase
-        await fetch(`${API_URL}/api/v1/suscribir`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                cedula: miCedula, // Usamos la cédula del login
-                subscription: sub
-            })
-        });
-        alert("✅ Notificaciones activadas.");
-    }
-        async function activarAlertasSeguridad() {
-    try {
-        // 1. Pedir permiso al vecino
-        const permiso = await Notification.requestPermission();
-        
-        if (permiso !== 'granted') {
-            alert("⚠️ Has bloqueado las notificaciones. Para recibirlas, actívalas en la configuración de tu navegador.");
-            return;
+    // ACTIVAR NOTIFICACIONES PUSH
+    async function activarAlertasSeguridad() {
+        try {
+            const permiso = await Notification.requestPermission();
+            
+            if (permiso !== 'granted') {
+                alert("⚠️ Has bloqueado las notificaciones. Actívalas en la configuración del sitio.");
+                return;
+            }
+
+            const registro = await navigator.serviceWorker.ready;
+            
+            // USAR TU VAPID PUBLIC KEY AQUÍ
+            const suscripcion = await registro.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: 'BHg_YmZ5Q1hWSlZRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0x'
+            });
+
+            const respuesta = await fetch(`${API_URL}/suscribir`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    cedula: miCedula, // Usamos la variable global ya cargada
+                    subscription: suscripcion
+                })
+            });
+
+            if (respuesta.ok) {
+                alert("✅ ¡Listo! Recibirás alertas de emergencia.");
+                document.getElementById('config-notificaciones').style.display = 'none';
+            } else {
+                alert("❌ Error al registrar el dispositivo en el servidor.");
+            }
+            
+        } catch (error) {
+            console.error("Error en suscripción:", error);
+            alert("Hubo un problema. Asegúrate de estar usando HTTPS.");
         }
-
-        // 2. Preparar el Service Worker
-        const registro = await navigator.serviceWorker.ready;
-        
-        // 3. Generar la suscripción única del celular
-        // IMPORTANTE: Reemplaza con tu VAPID_PUBLIC_KEY real
-        const suscripcion = await registro.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: 'BHg_YmZ5Q1hWSlZRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0x'
-        });
-
-        // 4. Enviar a tu servidor en Render (Python)
-        const respuesta = await fetch(`${API_URL}/api/v1/suscribir`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                cedula: localStorage.getItem('cedula_safequito'), // Asegúrate de que guardas la cédula al loguear
-                subscription: suscripcion
-            })
-        });
-
-        if (respuesta.ok) {
-            alert("✅ ¡Listo! Ahora recibirás alertas aunque la app esté cerrada.");
-            document.getElementById('config-notificaciones').style.display = 'none'; // Ocultar tras éxito
-        } else {
-            alert("❌ Hubo un error al registrar el dispositivo.");
-        }
-        
-    } catch (error) {
-        console.error("Error en suscripción:", error);
-        alert("Hubo un problema al activar las notificaciones. Verifica que estés usando HTTPS.");
     }
-}
-}
 </script>
 </body>
 </html>
