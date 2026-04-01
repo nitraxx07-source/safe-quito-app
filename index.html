@@ -337,8 +337,8 @@
             // Esperamos a que el Service Worker esté 100% listo
             const registro = await navigator.serviceWorker.ready;
             
-            // TU LLAVE VAPID PÚBLICA (Aquí la convertimos al formato que Android exige)
-            const publicVapidKey = 'BHg_YmZ5Q1hWSlZRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0x';
+         // TU LLAVE VAPID PÚBLICA REAL
+const publicVapidKey = '5RbUTkxy246ha1ZtLeyHBeGg1clWHjjlPU0C2+k0ks0JAchSK2q0Eh4W6vPzWxBT6p6RMKeeSztwy+vGpSMWlw==';
             const convertedVapidKey = urlBase64ToUint8Array(publicVapidKey);
 
             const suscripcion = await registro.pushManager.subscribe({
