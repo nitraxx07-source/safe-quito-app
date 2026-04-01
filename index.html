@@ -329,19 +329,23 @@
 }
 
     // SUSCRIPCIÓN PUSH CORREGIDA PARA ANDROID
-    async function activarAlertasSeguridad() {
-        try {
-            const cedulaTemp = miCedula || localStorage.getItem('safe_cedula');
-            if(!cedulaTemp) return alert("Inicia sesión primero.");
+   function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding)
+        .replace(/\-/g, '+')
+        .replace(/_/g, '/');
 
-            const permiso = await Notification.requestPermission();
-            if (permiso !== 'granted') return alert("Permiso denegado.");
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
 
-            // Esperamos a que el Service Worker esté 100% listo
-            const registro = await navigator.serviceWorker.ready;
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+}
             
        // TU LLAVE VAPID PÚBLICA REAL (Sin los == al final)
-const publicVapidKey = '5RbUTkxy246ha1ZtLeyHBeGg1clWHjjlPU0C2+k0ks0JAchSK2q0Eh4W6vPzWxBT6p6RMKeeSztwy+vGpSMWlw';
+const publicVapidKey = '5RbUTkxy246ha1ZtLeyHBeGg1clWHjjlPU0C2+k0ks0JAchSK2q0Eh4W6vPzWxBT6p6RMKeeSztwy+vGpSMWlw=';
             const convertedVapidKey = urlBase64ToUint8Array(publicVapidKey);
 
             const suscripcion = await registro.pushManager.subscribe({
