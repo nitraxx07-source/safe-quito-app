@@ -120,6 +120,12 @@
             <h4 style="color:red">⚙️ Consola Admin</h4>
             <input type="text" id="input-borrar" placeholder="Cédula a eliminar">
             <button class="principal" style="background:#c0392b" onclick="eliminarUsuario()">ELIMINAR USUARIO</button>
+            <div id="config-notificaciones" style="margin-top: 30px; padding: 15px; background: #f0f4f8; border-radius: 15px; text-align: center;">
+    <p style="font-size: 13px; color: #555; margin-bottom: 10px;">🔔 ¿Quieres recibir avisos de emergencia en tu celular?</p>
+    <button onclick="activarAlertasSeguridad()" style="background: #34495e; color: white; border: none; padding: 10px 20px; border-radius: 10px; font-weight: bold; cursor: pointer;">
+        ACTIVAR NOTIFICACIONES
+    </button>
+</div>
         </div>
 
         <button class="btn-logout" onclick="cerrarSesion()">Cerrar Sesión</button>
