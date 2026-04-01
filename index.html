@@ -311,21 +311,39 @@
     }
 
     // SUSCRIPCIÓN PUSH CORREGIDA
+    // FUNCIÓN AUXILIAR: Traduce la llave VAPID para que Android la entienda
+    function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding)
+            .replace(/\-/g, '+')
+            .replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    }
+
+    // SUSCRIPCIÓN PUSH CORREGIDA PARA ANDROID
     async function activarAlertasSeguridad() {
         try {
-            // Validar Cédula antes de nada
             const cedulaTemp = miCedula || localStorage.getItem('safe_cedula');
             if(!cedulaTemp) return alert("Inicia sesión primero.");
 
             const permiso = await Notification.requestPermission();
             if (permiso !== 'granted') return alert("Permiso denegado.");
 
+            // Esperamos a que el Service Worker esté 100% listo
             const registro = await navigator.serviceWorker.ready;
             
-            // TU LLAVE VAPID PÚBLICA
+            // TU LLAVE VAPID PÚBLICA (Aquí la convertimos al formato que Android exige)
+            const publicVapidKey = 'BHg_YmZ5Q1hWSlZRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0x';
+            const convertedVapidKey = urlBase64ToUint8Array(publicVapidKey);
+
             const suscripcion = await registro.pushManager.subscribe({
                 userVisibleOnly: true,
-                applicationServerKey: 'BHg_YmZ5Q1hWSlZRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0xRWm5kS0x'
+                applicationServerKey: convertedVapidKey // <--- Pasamos la llave convertida
             });
 
             const respuesta = await fetch(`${API_URL}/suscribir`, {
@@ -341,11 +359,11 @@
                 alert("✅ Notificaciones activadas.");
                 document.getElementById('config-notificaciones').style.display = 'none';
             } else {
-                alert("❌ Error en el servidor.");
+                alert("❌ Error en el servidor al guardar la suscripción.");
             }
         } catch (error) {
-            console.error(error);
-            alert("Error: Asegúrate de estar en HTTPS y que el archivo sw.js esté en tu GitHub.");
+            console.error("Error real de la suscripción:", error);
+            alert("Error al suscribirse: " + error.message);
         }
     }
 </script>
