@@ -214,31 +214,43 @@
         if (rol === 'admin') document.getElementById('panel-admin').classList.remove('oculto');
     }
 
-    async function cargarReportes() {
-        try {
-            const res = await fetch(`${API_URL}/reportes`, { headers: {'X-Usuario-Cedula': miCedula} });
-            const reportes = await res.json();
-            const pendientes = reportes.filter(r => r.estado === 'Pendiente');
-            document.getElementById('contador').innerText = pendientes.length;
+async function cargarReportes() {
+    try {
+        const res = await fetch(`${API_URL}/reportes`, { headers: {'X-Usuario-Cedula': miCedula} });
+        const reportes = await res.json();
+        
+        // CAMBIO AQUÍ: Filtramos para que se queden los Pendientes Y los que están En transcurso
+        const activos = reportes.filter(r => r.estado === 'Pendiente' || r.estado === 'En transcurso');
+        
+        // Actualizamos el contador solo con los realmente pendientes si quieres
+        const soloPendientes = activos.filter(r => r.estado === 'Pendiente');
+        document.getElementById('contador').innerText = soloPendientes.length;
 
-            let html = "";
-            pendientes.forEach(r => {
-                const mapaLink = `https://www.google.com/maps?q=${r.gps}`;
-                html += `
-                <div class="card-reporte">
-                    <span class="badge-pendiente">PENDIENTE</span>
-                    <b>${r.tipo_alerta}</b><br>
-                    <small>${r.nombre_completo} | 🏠 ${r.barrio}</small><br>
-                    <small>📍 <a href="${mapaLink}" target="_blank" style="color:var(--azul-oscuro); font-weight:bold;">VER UBICACIÓN</a></small><br>
-                    <div style="display:flex; gap:10px;">
-                        <button class="btn-accion" style="background:#2980b9" onclick="cambiarEstado(${r.id}, 'En transcurso')">EN CURSO</button>
-                        <button class="btn-accion" style="background:#27ae60" onclick="cambiarEstado(${r.id}, 'Atendido')">ATENDIDO</button>
-                    </div>
-                </div>`;
-            });
-            document.getElementById('lista-reportes').innerHTML = html || "<p style='font-size:12px;color:gray;text-align:center;'>No hay alertas.</p>";
-        } catch(e) { console.log("Error al cargar reportes"); }
-    }
+        let html = "";
+        activos.forEach(r => {
+            const mapaLink = `https://www.google.com/maps?q=${r.gps}`;
+            
+            // Le damos un estilo diferente si ya está "En transcurso"
+            const esEnCurso = r.estado === 'En transcurso';
+            const colorBorde = esEnCurso ? '#2980b9' : 'var(--rojo-alerta)';
+            const textoBadge = esEnCurso ? 'EN CURSO' : 'PENDIENTE';
+            const claseBadge = esEnCurso ? 'style="background:#2980b9"' : 'class="badge-pendiente"';
+
+            html += `
+            <div class="card-reporte" style="border-left: 6px solid ${colorBorde}">
+                <span ${claseBadge} style="color:white; padding:2px 6px; border-radius:6px; font-size:10px; font-weight:bold; position:absolute; right:10px; top:10px;">${textoBadge}</span>
+                <b>${r.tipo_alerta}</b><br>
+                <small>${r.nombre_completo} | 🏠 ${r.barrio}</small><br>
+                <small>📍 <a href="${mapaLink}" target="_blank" style="color:var(--azul-oscuro); font-weight:bold;">VER UBICACIÓN</a></small><br>
+                <div style="display:flex; gap:10px;">
+                    ${!esEnCurso ? `<button class="btn-accion" style="background:#2980b9" onclick="cambiarEstado(${r.id}, 'En transcurso')">TOMAR ALERTA</button>` : ''}
+                    <button class="btn-accion" style="background:#27ae60; ${esEnCurso ? 'width:100%' : ''}" onclick="cambiarEstado(${r.id}, 'Atendido')">FINALIZAR</button>
+                </div>
+            </div>`;
+        });
+        document.getElementById('lista-reportes').innerHTML = html || "<p style='font-size:12px;color:gray;text-align:center;'>No hay alertas activas.</p>";
+    } catch(e) { console.log("Error al cargar reportes"); }
+}
 
     async function cambiarEstado(id, nuevo) {
         try {
