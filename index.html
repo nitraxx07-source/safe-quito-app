@@ -219,37 +219,53 @@ async function cargarReportes() {
         const res = await fetch(`${API_URL}/reportes`, { headers: {'X-Usuario-Cedula': miCedula} });
         const reportes = await res.json();
         
-        // CAMBIO AQUÍ: Filtramos para que se queden los Pendientes Y los que están En transcurso
         const activos = reportes.filter(r => r.estado === 'Pendiente' || r.estado === 'En transcurso');
-        
-        // Actualizamos el contador solo con los realmente pendientes si quieres
         const soloPendientes = activos.filter(r => r.estado === 'Pendiente');
         document.getElementById('contador').innerText = soloPendientes.length;
 
         let html = "";
         activos.forEach(r => {
-            const mapaLink = `https://www.google.com/maps?q=${r.gps}`;
+            // USAMOS LAS COORDENADAS REALES (GPS) DEL REPORTE
+            // El formato esperado en r.gps es "latitud,longitud"
+            const coordsReal = r.gps; 
+            const mapaLink = `https://www.google.com/maps?q=${coordsReal}`;
             
-            // Le damos un estilo diferente si ya está "En transcurso"
             const esEnCurso = r.estado === 'En transcurso';
             const colorBorde = esEnCurso ? '#2980b9' : 'var(--rojo-alerta)';
             const textoBadge = esEnCurso ? 'EN CURSO' : 'PENDIENTE';
             const claseBadge = esEnCurso ? 'style="background:#2980b9"' : 'class="badge-pendiente"';
 
             html += `
-            <div class="card-reporte" style="border-left: 6px solid ${colorBorde}">
+            <div class="card-reporte" style="border-left: 6px solid ${colorBorde}; text-align: left; padding: 15px; position: relative;">
                 <span ${claseBadge} style="color:white; padding:2px 6px; border-radius:6px; font-size:10px; font-weight:bold; position:absolute; right:10px; top:10px;">${textoBadge}</span>
-                <b>${r.tipo_alerta}</b><br>
-                <small>${r.nombre_completo} | 🏠 ${r.barrio}</small><br>
-                <small>📍 <a href="${mapaLink}" target="_blank" style="color:var(--azul-oscuro); font-weight:bold;">VER UBICACIÓN</a></small><br>
-                <div style="display:flex; gap:10px;">
+                
+                <h3 style="margin: 0 0 10px 0; color: var(--azul-oscuro);">${r.tipo_alerta}</h3>
+                
+                <div style="font-size: 13px; line-height: 1.6;">
+                    <b>👤 Vecino:</b> ${r.nombre_completo} <br>
+                    <b>🆔 Cédula:</b> ${r.cedula || 'N/A'} <br>
+                    <b>📞 Celular:</b> <a href="tel:${r.celular}" style="color: #27ae60; font-weight: bold;">${r.celular || 'N/A'}</a> <br>
+                    
+                    <div style="background: #f9f9f9; padding: 10px; border-radius: 10px; margin-top: 10px; border: 1px dashed #ccc;">
+                        <small style="color: #666; display: block; margin-bottom: 5px;">📍 DATOS DE UBICACIÓN:</small>
+                        <b>Casa:</b> ${r.barrio}, ${r.calle_principal} <br>
+                        <b>Punto de Alerta (GPS):</b> <br>
+                        <a href="${mapaLink}" target="_blank" style="display: inline-block; margin-top: 5px; background: #db4437; color: white; padding: 5px 12px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 11px;">
+                            🚩 ABRIR MAPA EN TIEMPO REAL
+                        </a>
+                    </div>
+                </div>
+
+                <div style="display:flex; gap:10px; margin-top: 15px;">
                     ${!esEnCurso ? `<button class="btn-accion" style="background:#2980b9" onclick="cambiarEstado(${r.id}, 'En transcurso')">TOMAR ALERTA</button>` : ''}
                     <button class="btn-accion" style="background:#27ae60; ${esEnCurso ? 'width:100%' : ''}" onclick="cambiarEstado(${r.id}, 'Atendido')">FINALIZAR</button>
                 </div>
             </div>`;
         });
         document.getElementById('lista-reportes').innerHTML = html || "<p style='font-size:12px;color:gray;text-align:center;'>No hay alertas activas.</p>";
-    } catch(e) { console.log("Error al cargar reportes"); }
+    } catch(e) { 
+        console.log("Error al cargar reportes", e); 
+    }
 }
 
     async function cambiarEstado(id, nuevo) {
