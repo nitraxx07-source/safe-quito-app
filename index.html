@@ -225,40 +225,53 @@ async function cargarReportes() {
 
         let html = "";
         activos.forEach(r => {
-            // USAMOS LAS COORDENADAS REALES (GPS) DEL REPORTE
-            // El formato esperado en r.gps es "latitud,longitud"
+            // IMPORTANTE: Obtenemos los datos del usuario del objeto 'usuarios' que envía el servidor
+            const u = r.usuarios || {}; 
+            
+            // Corregimos la URL del GPS: usamos las coordenadas reales del reporte
             const coordsReal = r.gps; 
             const mapaLink = `https://www.google.com/maps?q=${coordsReal}`;
             
             const esEnCurso = r.estado === 'En transcurso';
             const colorBorde = esEnCurso ? '#2980b9' : 'var(--rojo-alerta)';
             const textoBadge = esEnCurso ? 'EN CURSO' : 'PENDIENTE';
-            const claseBadge = esEnCurso ? 'style="background:#2980b9"' : 'class="badge-pendiente"';
+            const colorBadge = esEnCurso ? '#2980b9' : '#e74c3c';
 
             html += `
-            <div class="card-reporte" style="border-left: 6px solid ${colorBorde}; text-align: left; padding: 15px; position: relative;">
-                <span ${claseBadge} style="color:white; padding:2px 6px; border-radius:6px; font-size:10px; font-weight:bold; position:absolute; right:10px; top:10px;">${textoBadge}</span>
+            <div class="card-reporte" style="border-left: 6px solid ${colorBorde}; text-align: left; padding: 15px; position: relative; background: white; border-radius: 10px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                <span style="background:${colorBadge}; color:white; padding:2px 8px; border-radius:6px; font-size:10px; font-weight:bold; position:absolute; right:10px; top:10px;">
+                    ${textoBadge}
+                </span>
                 
-                <h3 style="margin: 0 0 10px 0; color: var(--azul-oscuro);">${r.tipo_alerta}</h3>
+                <h3 style="margin: 0 0 10px 0; color: var(--azul-oscuro); text-transform: uppercase; font-size: 16px;">${r.tipo_alerta}</h3>
                 
                 <div style="font-size: 13px; line-height: 1.6;">
                     <b>👤 Vecino:</b> ${r.nombre_completo} <br>
-                    <b>🆔 Cédula:</b> ${r.cedula || 'N/A'} <br>
-                    <b>📞 Celular:</b> <a href="tel:${r.celular}" style="color: #27ae60; font-weight: bold;">${r.celular || 'N/A'}</a> <br>
+                    <b>🆔 Cédula:</b> ${u.cedula || 'No disponible'} <br>
+                    <b>📞 Celular:</b> <a href="tel:${u.celular}" style="color: #27ae60; font-weight: bold; text-decoration: none;">${u.celular || 'Sin número'}</a> <br>
                     
                     <div style="background: #f9f9f9; padding: 10px; border-radius: 10px; margin-top: 10px; border: 1px dashed #ccc;">
-                        <small style="color: #666; display: block; margin-bottom: 5px;">📍 DATOS DE UBICACIÓN:</small>
-                        <b>Casa:</b> ${r.barrio}, ${r.calle_principal} <br>
-                        <b>Punto de Alerta (GPS):</b> <br>
-                        <a href="${mapaLink}" target="_blank" style="display: inline-block; margin-top: 5px; background: #db4437; color: white; padding: 5px 12px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 11px;">
-                            🚩 ABRIR MAPA EN TIEMPO REAL
+                        <small style="color: #666; display: block; margin-bottom: 5px;">📍 UBICACIÓN REGISTRADA:</small>
+                        <b>Barrio:</b> ${u.barrio || r.barrio} <br>
+                        <b>Dirección:</b> ${u.calle_principal || 'N/A'} y ${u.calle_secundaria || 'N/A'} - Casa: ${u.numero_casa || 'N/A'} <br>
+                        
+                        <hr style="border: 0; border-top: 1px solid #eee; margin: 8px 0;">
+                        
+                        <b>Punto de Emergencia (GPS):</b> <br>
+                        <a href="${mapaLink}" target="_blank" style="display: inline-block; margin-top: 5px; background: #db4437; color: white; padding: 6px 12px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 11px; width: 100%; text-align: center;">
+                            🚩 VER EN MAPA EN TIEMPO REAL
                         </a>
                     </div>
                 </div>
 
                 <div style="display:flex; gap:10px; margin-top: 15px;">
-                    ${!esEnCurso ? `<button class="btn-accion" style="background:#2980b9" onclick="cambiarEstado(${r.id}, 'En transcurso')">TOMAR ALERTA</button>` : ''}
-                    <button class="btn-accion" style="background:#27ae60; ${esEnCurso ? 'width:100%' : ''}" onclick="cambiarEstado(${r.id}, 'Atendido')">FINALIZAR</button>
+                    ${!esEnCurso ? `
+                        <button class="btn-accion" style="background:#2980b9; color: white; border: none; padding: 10px; border-radius: 5px; flex: 1; cursor: pointer; font-weight: bold;" onclick="cambiarEstado(${r.id}, 'En transcurso')">
+                            TOMAR ALERTA
+                        </button>` : ''}
+                    <button class="btn-accion" style="background:#27ae60; color: white; border: none; padding: 10px; border-radius: 5px; flex: 1; cursor: pointer; font-weight: bold;" onclick="cambiarEstado(${r.id}, 'Atendido')">
+                        FINALIZAR
+                    </button>
                 </div>
             </div>`;
         });
