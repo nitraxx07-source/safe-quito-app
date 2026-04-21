@@ -169,11 +169,25 @@ def obtener_reportes():
     try:
         user_info = supabase.table("usuarios").select("rol").eq("cedula", user_cedula).execute()
         rol = user_info.data[0]['rol'] if user_info.data else 'vecino'
+        
         if rol in ['admin', 'dirigente', 'policia']:
-            res = supabase.table("reportes").select("*").order("id", desc=True).execute()
+            # CAMBIO AQUÍ: Pedimos los datos del reporte Y los datos del usuario relacionado
+            # Usamos 'usuarios!cedula_vecino' para decirle a Supabase que use esa columna como unión
+            res = supabase.table("reportes").select("""
+                *,
+                usuarios:cedula_vecino (
+                    cedula,
+                    celular,
+                    calle_principal,
+                    calle_secundaria,
+                    numero_casa
+                )
+            """).order("id", desc=True).execute()
+            
             return jsonify(res.data), 200
         return jsonify({"status": "error", "msj": "No autorizado"}), 403
     except Exception as e:
+        print(f"Error en reportes: {e}")
         return jsonify({"status": "error", "msj": str(e)}), 500
 
 # 7. ACTUALIZAR ESTADO
