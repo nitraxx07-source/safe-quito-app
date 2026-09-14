@@ -1,7 +1,6 @@
-flask
+Flask
 flask-cors
 flask-bcrypt
-supabase
-gunicorn
 psycopg2-binary
 pywebpush
+gunicorn
