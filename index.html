@@ -335,25 +335,38 @@ async function cargarReportes() {
     }
 
     async function enviarAlerta(tipo) {
-        if (!confirm(`¿Enviar alerta de ${tipo}?`)) return;
+    if (!confirm(`¿Enviar alerta de ${tipo}?`)) return;
 
-        navigator.geolocation.getCurrentPosition(async (pos) => {
-            const gps = `${pos.coords.latitude},${pos.coords.longitude}`;
-            try {
-                const res = await fetch(`${API_URL}/reportar`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        cedula: miCedula, 
-                        tipo: tipo, 
-                        gps: gps
-                    })
-                });
-                if (res.ok) alert("✅ Alerta enviada.");
-                else alert("❌ Error al enviar.");
-            } catch(e) { alert("📡 Error de red."); }
-        }, () => alert("📍 Activa el GPS."), {enableHighAccuracy: true});
-    }
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+        const gps = `${pos.coords.latitude},${pos.coords.longitude}`;
+        try {
+            const res = await fetch(`${API_URL}/reportar`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    cedula: miCedula, 
+                    tipo: tipo, 
+                    gps: gps
+                })
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                alert("✅ Alerta enviada correctamente.");
+
+                // Si viene la URL de WhatsApp, redirigir para compartir en el grupo
+                if (data.whatsapp_url) {
+                    window.open(data.whatsapp_url, '_blank');
+                }
+            } else {
+                alert("❌ Error al enviar: " + (data.msj || ''));
+            }
+        } catch(e) { 
+            alert("📡 Error de red."); 
+        }
+    }, () => alert("📍 Activa el GPS."), {enableHighAccuracy: true});
+}
 
     // --- LÓGICA DE NOTIFICACIONES PUSH ---
 
