@@ -225,11 +225,29 @@ async function cargarReportes() {
 
         let html = "";
         activos.forEach(r => {
-            // IMPORTANTE: Obtenemos los datos del usuario del objeto 'usuarios' que envía el servidor
+            // Evaluamos si los datos vienen dentro de r.usuarios o directamente en r
             const u = r.usuarios || {}; 
             
-            // Corregimos la URL del GPS: usamos las coordenadas reales del reporte
-            const coordsReal = r.gps; 
+            // Extracción segura de datos
+            const nombreCompleto = r.nombre_completo || u.nombre_completo || 'Vecino';
+            const cedulaVecino = r.cedula || r.cedula_vecino || u.cedula || 'No disponible';
+            const celularVecino = r.celular || u.celular || '';
+            const barrioVecino = r.barrio || u.barrio || 'Sin Barrio';
+            
+            // Construcción de la dirección exacta
+            let direccionCompleta = "";
+            if (r.direccion_exacta) {
+                direccionCompleta = r.direccion_exacta;
+            } else if (u.calle_principal || r.calle_principal) {
+                const principal = u.calle_principal || r.calle_principal || 'N/A';
+                const secundaria = u.calle_secundaria || r.calle_secundaria || 'N/A';
+                const casa = u.numero_casa || r.numero_casa || 'N/A';
+                direccionCompleta = `${principal} y ${secundaria} - Casa: ${casa}`;
+            } else {
+                direccionCompleta = 'No registrada';
+            }
+
+            const coordsReal = r.gps || ''; 
             const mapaLink = `https://www.google.com/maps?q=${coordsReal}`;
             
             const esEnCurso = r.estado === 'En transcurso';
@@ -246,14 +264,14 @@ async function cargarReportes() {
                 <h3 style="margin: 0 0 10px 0; color: var(--azul-oscuro); text-transform: uppercase; font-size: 16px;">${r.tipo_alerta}</h3>
                 
                 <div style="font-size: 13px; line-height: 1.6;">
-                    <b>👤 Vecino:</b> ${r.nombre_completo} <br>
-                    <b>🆔 Cédula:</b> ${u.cedula || 'No disponible'} <br>
-                    <b>📞 Celular:</b> <a href="tel:${u.celular}" style="color: #27ae60; font-weight: bold; text-decoration: none;">${u.celular || 'Sin número'}</a> <br>
+                    <b>👤 Vecino:</b> ${nombreCompleto} <br>
+                    <b>🆔 Cédula:</b> ${cedulaVecino} <br>
+                    <b>📞 Celular:</b> ${celularVecino ? `<a href="tel:${celularVecino}" style="color: #27ae60; font-weight: bold; text-decoration: none;">${celularVecino}</a>` : 'Sin número'} <br>
                     
                     <div style="background: #f9f9f9; padding: 10px; border-radius: 10px; margin-top: 10px; border: 1px dashed #ccc;">
                         <small style="color: #666; display: block; margin-bottom: 5px;">📍 UBICACIÓN REGISTRADA:</small>
-                        <b>Barrio:</b> ${u.barrio || r.barrio} <br>
-                        <b>Dirección:</b> ${u.calle_principal || 'N/A'} y ${u.calle_secundaria || 'N/A'} - Casa: ${u.numero_casa || 'N/A'} <br>
+                        <b>Barrio:</b> ${barrioVecino} <br>
+                        <b>Dirección:</b> ${direccionCompleta} <br>
                         
                         <hr style="border: 0; border-top: 1px solid #eee; margin: 8px 0;">
                         
@@ -280,7 +298,6 @@ async function cargarReportes() {
         console.log("Error al cargar reportes", e); 
     }
 }
-
     async function cambiarEstado(id, nuevo) {
         try {
             const res = await fetch(`${API_URL}/reportes/${id}`, {
