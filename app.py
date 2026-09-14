@@ -15,7 +15,6 @@ bcrypt = Bcrypt(app)
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 def get_db_connection():
-    # Conexión directa a la base de datos PostgreSQL de Neon Tech
     conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
     return conn
 
@@ -135,13 +134,17 @@ def reportar():
         u = cur.fetchone() or {}
 
         nombre_comp = f"{u.get('nombres', '')} {u.get('apellidos', '')}".strip()
-        dir_exacta = f"{u.get('calle_principal', '')} y {u.get('calle_secundaria', '')} - Casa: {u.get('numero_casa', '')}"
+        
+        calle_p = u.get('calle_principal') or 'N/A'
+        calle_s = u.get('calle_secundaria') or 'N/A'
+        num_c = u.get('numero_casa') or 'N/A'
+        dir_exacta = f"{calle_p} y {calle_s} - Casa: {num_c}"
         
         # Insertar el reporte en Postgres
         cur.execute("""
             INSERT INTO reportes (cedula_vecino, nombre_completo, tipo_alerta, gps, barrio, direccion_exacta, estado)
             VALUES (%s, %s, %s, %s, %s, %s, %s);
-        """, (cedula, nombre_comp, tipo_alerta, gps, u.get('barrio'), dir_exacta, "Pendiente"))
+        """, (cedula, nombre_comp, tipo_alerta, gps, u.get('barrio', 'N/A'), dir_exacta, "Pendiente"))
         
         conn.commit()
         cur.close()
@@ -214,16 +217,17 @@ def obtener_reportes():
             cur.execute("""
                 SELECT 
                     r.id,
-                    r.tipo_alerta,
+                    r.tipo_alerta AS tipo,
                     r.estado,
                     r.gps,
-                    r.nombre_completo,
+                    r.nombre_completo AS vecino,
                     r.barrio,
-                    u.cedula,
-                    u.celular,
-                    u.calle_principal,
-                    u.calle_secundaria,
-                    u.numero_casa
+                    r.direccion_exacta AS direccion_exacta,
+                    COALESCE(r.cedula_vecino, u.cedula, 'No disponible') AS cedula,
+                    COALESCE(u.celular, 'Sin número') AS celular,
+                    COALESCE(u.calle_principal, 'N/A') AS calle_principal,
+                    COALESCE(u.calle_secundaria, 'N/A') AS calle_secundaria,
+                    COALESCE(u.numero_casa, 'N/A') AS numero_casa
                 FROM reportes r
                 LEFT JOIN usuarios u ON r.cedula_vecino = u.cedula
                 ORDER BY r.id DESC;
