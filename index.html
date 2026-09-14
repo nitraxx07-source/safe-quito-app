@@ -54,8 +54,8 @@
         .card-reporte { background: white; padding: 12px; border-radius: 12px; margin-bottom: 10px; border-left: 6px solid var(--azul-oscuro); font-size: 13px; position: relative; box-shadow: 0 2px 5px rgba(0,0,0,0.08); }
         
         button.principal { width: 100%; padding: 16px; background: var(--azul-oscuro); color: white; border: none; border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer; margin-top: 10px; display: flex; align-items: center; justify-content: center; }
-        .btn-accion { padding: 10px; border-radius: 8px; border: none; color: white; font-size: 11px; margin-top: 10px; cursor: pointer; font-weight: bold; width: 48%; }
-        .btn-whatsapp { width: 100%; background: var(--verde-whatsapp); color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; font-size: 12px; cursor: pointer; margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        .btn-accion { padding: 8px; border-radius: 6px; border: none; color: white; font-size: 11px; cursor: pointer; font-weight: bold; flex: 1; }
+        .btn-whatsapp { width: 100%; background: var(--verde-whatsapp); color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; font-size: 12px; cursor: pointer; margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 6px; }
         
         .oculto { display: none; }
         .link { color: var(--azul-oscuro); cursor: pointer; display: block; margin-top: 15px; font-weight: bold; text-decoration: underline; }
@@ -103,7 +103,7 @@
     <div id="seccion-app" class="oculto">
         <h3 id="bienvenida"></h3>
 
-        <!-- Botones para vecinos -->
+        <!-- Botones para emitir alertas -->
         <div id="contenedor-botones" class="grid-botones oculto">
             <button class="btn-alerta btn-auxilio" onclick="enviarAlerta('AUXILIO')">🚨 AUXILIO</button>
             <button class="btn-alerta btn-robo" onclick="enviarAlerta('ROBO')">🔫 ROBO</button>
@@ -112,16 +112,16 @@
             <button class="btn-alerta btn-accidente" onclick="enviarAlerta('ACCIDENTE')">🚑 ACCIDENTE</button>
         </div>
 
-        <!-- Historial / Panel para Vecinos y Dirigentes -->
+        <!-- Panel de Alertas Activas en el Barrio -->
         <div id="panel-gestion" class="panel-gestion oculto">
             <h4 style="display:flex; justify-content:space-between; margin:0 0 10px 0;">
-                <span id="titulo-panel">📋 Mis Alertas Recientes</span>
+                <span id="titulo-panel">📋 Alertas Activas en el Barrio</span>
                 <span id="contador" style="background:red; color:white; padding:2px 8px; border-radius:10px; font-size:12px;">0</span>
             </h4>
             <div id="lista-reportes">Cargando...</div>
         </div>
 
-        <!-- Panel Administrador -->
+        <!-- Panel exclusivo para Administrador -->
         <div id="panel-admin" class="panel-gestion oculto" style="background: #fff5f5;">
             <h4 style="color:red">⚙️ Consola Admin</h4>
             <input type="text" id="input-borrar" placeholder="Cédula a eliminar">
@@ -214,106 +214,106 @@
         document.getElementById('seccion-app').classList.remove('oculto');
         document.getElementById('bienvenida').innerText = `Hola, ${nombre}`;
 
-        // Para vecinos
+        // Todos los roles ven el panel de gestión para observar/compartir alertas activas
+        document.getElementById('panel-gestion').classList.remove('oculto');
+
         if (rol === 'vecino') {
             document.getElementById('contenedor-botones').classList.remove('oculto');
-            document.getElementById('panel-gestion').classList.remove('oculto');
-            document.getElementById('titulo-panel').innerText = "📋 Mis Alertas Enviadas";
-        } 
-        // Para dirigentes, administradores y policías
-        else {
-            document.getElementById('panel-gestion').classList.remove('oculto');
-            document.getElementById('titulo-panel').innerText = "📋 Alertas Pendientes";
         }
 
-        if (rol === 'admin') document.getElementById('panel-admin').classList.remove('oculto');
+        if (rol === 'admin') {
+            document.getElementById('panel-admin').classList.remove('oculto');
+        }
 
-        // Cargar alertas e ir actualizando automáticamente
+        // Cargar alertas e ir actualizando automáticamente cada 10 segundos
         cargarReportes();
         setInterval(cargarReportes, 10000);
     }
 
     async function cargarReportes() {
         try {
-            const res = await fetch(`${API_URL}/reportes`, { headers: {'X-Usuario-Cedula': miCedula} });
-            let reportes = await res.json();
+            const res = await fetch(`${API_URL}/reportes`, { 
+                headers: { 'X-Usuario-Cedula': miCedula } 
+            });
             
-            // Si es vecino, mostramos solo sus propias alertas
-            if (miRol === 'vecino') {
-                reportes = reportes.filter(r => (r.cedula === miCedula || r.cedula_vecino === miCedula));
-            } else {
-                // Para dirigentes/policías mostramos solo pendientes y en curso
-                reportes = reportes.filter(r => r.estado === 'Pendiente' || r.estado === 'En transcurso');
+            if (!res.ok) {
+                document.getElementById('lista-reportes').innerHTML = "<p style='font-size:12px;color:gray;text-align:center;'>No se pudieron cargar los reportes.</p>";
+                return;
             }
 
-            document.getElementById('contador').innerText = reportes.length;
+            let reportes = await res.json();
+            if (!Array.isArray(reportes)) reportes = [];
+
+            // REGLA: Mostrar sólo alertas activas ('Pendiente' o 'En transcurso').
+            // Cuando una alerta pasa a 'Atendido', desaparece automáticamente para TODOS.
+            const reportesActivos = reportes.filter(r => r.estado === 'Pendiente' || r.estado === 'En transcurso');
+
+            document.getElementById('contador').innerText = reportesActivos.length;
+
+            if (reportesActivos.length === 0) {
+                document.getElementById('lista-reportes').innerHTML = "<p style='font-size:12px;color:gray;text-align:center;'>Sin alertas activas en el barrio.</p>";
+                return;
+            }
 
             let html = "";
-            reportes.forEach(r => {
+            reportesActivos.forEach(r => {
                 const u = r.usuarios || {}; 
                 const nombreCompleto = r.nombre_completo || u.nombre_completo || 'Vecino';
-                const cedulaVecino = r.cedula || r.cedula_vecino || u.cedula || 'N/A';
                 const coordsReal = r.gps || ''; 
                 const mapaLink = `https://www.google.com/maps?q=${coordsReal}`;
                 
                 const esEnCurso = r.estado === 'En transcurso';
-                const esAtendido = r.estado === 'Atendido';
+                const textoBadge = esEnCurso ? 'EN CURSO' : 'PENDIENTE';
+                const colorBadge = esEnCurso ? '#2980b9' : '#e74c3c';
 
-                let textoBadge = 'PENDIENTE';
-                let colorBadge = '#e74c3c';
-
-                if (esEnCurso) { textoBadge = 'EN CURSO'; colorBadge = '#2980b9'; }
-                if (esAtendido) { textoBadge = 'ATENDIDO'; colorBadge = '#27ae60'; }
-
-                // Mensaje preparado para compartir en WhatsApp
+                // Mensaje listo para compartir vía WhatsApp
                 const mensajeWS = encodeURIComponent(
-                    `🚨 *ALERTA DE SEGURIDAD BARRIAL: ${r.tipo_alerta}* 🚨\n\n` +
-                    `👤 *Vecino:* ${nombreCompleto}\n` +
-                    `🆔 *Cédula:* ${cedulaVecino}\n` +
+                    `🚨 *ALERTA BARRIAL: ${r.tipo_alerta}* 🚨\n\n` +
+                    `👤 *Emitida por:* ${nombreCompleto}\n` +
                     `📍 *Ubicación GPS:* ${mapaLink}\n\n` +
-                    `_Por favor brindar asistencia inmediata._`
+                    `_Se requiere atención o difusión inmediata._`
                 );
                 const urlCompartirWS = `https://api.whatsapp.com/send?text=${mensajeWS}`;
 
                 html += `
-                <div class="card-reporte" style="border-left: 6px solid ${colorBadge};">
+                <div class="card-reporte" style="border-left: 6px solid ${colorBadge}; position:relative; background:white; padding:12px; border-radius:10px; margin-bottom:10px; box-shadow:0 2px 5px rgba(0,0,0,0.08);">
                     <span style="background:${colorBadge}; color:white; padding:2px 8px; border-radius:6px; font-size:10px; font-weight:bold; position:absolute; right:10px; top:10px;">
                         ${textoBadge}
                     </span>
                     
-                    <h3 style="margin: 0 0 8px 0; color: var(--azul-oscuro); font-size: 15px;">${r.tipo_alerta}</h3>
+                    <h3 style="margin: 0 0 8px 0; color: var(--azul-oscuro); font-size: 15px; text-transform:uppercase;">${r.tipo_alerta}</h3>
                     
-                    <div style="font-size: 12px; line-height: 1.5; color: #333;">
-                        <b>👤 Vecino:</b> ${nombreCompleto} <br>
+                    <div style="font-size: 12px; line-height: 1.5; color: #333; text-align:left;">
+                        <b>👤 Emitida por:</b> ${nombreCompleto} <br>
                         <b>📍 Ubicación GPS:</b> <a href="${mapaLink}" target="_blank" style="color:#d35400; font-weight:bold;">Ver en Mapa 🗺️</a>
                     </div>
 
-                    <!-- Botón para Compartir a cualquier WhatsApp o Grupo -->
+                    <!-- Botón de compartir en WhatsApp disponible para todos -->
                     <a href="${urlCompartirWS}" target="_blank" style="text-decoration:none;">
                         <button class="btn-whatsapp">
                             💬 Compartir en Grupo / WhatsApp
                         </button>
                     </a>
 
-                    <!-- Botones de gestión (Solo para Dirigentes / Policía / Admin) -->
+                    <!-- Botones de gestión para Admin / Dirigentes / Policía -->
                     ${miRol !== 'vecino' ? `
-                        <div style="display:flex; gap:10px; margin-top: 5px;">
-                            ${!esEnCurso && !esAtendido ? `
+                        <div style="display:flex; gap:10px; margin-top: 8px;">
+                            ${!esEnCurso ? `
                                 <button class="btn-accion" style="background:#2980b9;" onclick="cambiarEstado(${r.id}, 'En transcurso')">
                                     TOMAR ALERTA
                                 </button>` : ''}
-                            ${!esAtendido ? `
-                                <button class="btn-accion" style="background:#27ae60;" onclick="cambiarEstado(${r.id}, 'Atendido')">
-                                    FINALIZAR
-                                </button>` : ''}
+                            <button class="btn-accion" style="background:#27ae60;" onclick="cambiarEstado(${r.id}, 'Atendido')">
+                                FINALIZAR
+                            </button>
                         </div>
                     ` : ''}
                 </div>`;
             });
 
-            document.getElementById('lista-reportes').innerHTML = html || "<p style='font-size:12px;color:gray;text-align:center;'>No hay alertas para mostrar.</p>";
+            document.getElementById('lista-reportes').innerHTML = html;
         } catch(e) { 
-            console.log("Error al cargar reportes", e); 
+            console.error("Error al cargar reportes:", e); 
+            document.getElementById('lista-reportes').innerHTML = "<p style='font-size:12px;color:red;text-align:center;'>Error al obtener alertas.</p>";
         }
     }
 
@@ -372,8 +372,8 @@
                 const data = await res.json();
 
                 if (res.ok) {
-                    alert("✅ Alerta registrada con éxito.");
-                    cargarReportes(); // Actualiza el historial del vecino inmediatamente
+                    alert("✅ Alerta enviada correctamente.");
+                    cargarReportes(); // Actualiza la lista en pantalla
                 } else {
                     alert("❌ Error al enviar: " + (data.msj || ''));
                 }
