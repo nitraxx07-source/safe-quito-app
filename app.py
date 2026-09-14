@@ -11,14 +11,12 @@ app = Flask(__name__)
 CORS(app)
 bcrypt = Bcrypt(app)
 
-# URL DE CONEXIÓN A NEON POSTGRES (Se lee desde la variable de Render)
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 def get_db_connection():
     conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
     return conn
 
-# CONFIGURACIÓN VAPID (Notificaciones Push)
 VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY")
 VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY")
 VAPID_CLAIMS = {"sub": "mailto:NITRAXX07@GMAIL.COM"}
@@ -27,7 +25,6 @@ VAPID_CLAIMS = {"sub": "mailto:NITRAXX07@GMAIL.COM"}
 def home():
     return "Servidor SafeQuito - Sistema Activo en Neon Postgres", 200
 
-# FUNCIÓN PARA DISPARAR PUSH
 def disparar_notificaciones_push(tipo, barrio):
     try:
         conn = get_db_connection()
@@ -38,7 +35,7 @@ def disparar_notificaciones_push(tipo, barrio):
         conn.close()
         
         payload = {
-            "title": f"🚨 AUXILIO EN {barrio.upper()}",
+            "title": f"🚨 AUXILIO EN {str(barrio).upper()}",
             "body": f"Alerta de: {tipo}. ¡Revisa el mapa ahora!",
             "icon": "https://tu-usuario.github.io/tu-repo/icon-100.png"
         }
@@ -129,28 +126,25 @@ def reportar():
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Consultar datos del usuario
         cur.execute("SELECT * FROM usuarios WHERE cedula = %s;", (cedula,))
         u = cur.fetchone() or {}
 
-        nombre_comp = f"{u.get('nombres', '')} {u.get('apellidos', '')}".strip()
+        nombre_comp = f"{u.get('nombres', '')} {u.get('apellidos', '')}".strip() or "Vecino"
         
-        calle_p = u.get('calle_principal') or 'N/A'
-        calle_s = u.get('calle_secundaria') or 'N/A'
-        num_c = u.get('numero_casa') or 'N/A'
+        calle_p = u.get('calle_principal') or 'S/N'
+        calle_s = u.get('calle_secundaria') or 'S/N'
+        num_c = u.get('numero_casa') or 'S/N'
         dir_exacta = f"{calle_p} y {calle_s} - Casa: {num_c}"
         
-        # Insertar el reporte en Postgres
         cur.execute("""
             INSERT INTO reportes (cedula_vecino, nombre_completo, tipo_alerta, gps, barrio, direccion_exacta, estado)
             VALUES (%s, %s, %s, %s, %s, %s, %s);
-        """, (cedula, nombre_comp, tipo_alerta, gps, u.get('barrio', 'N/A'), dir_exacta, "Pendiente"))
+        """, (cedula, nombre_comp, tipo_alerta, gps, u.get('barrio', 'Sin Barrio'), dir_exacta, "Pendiente"))
         
         conn.commit()
         cur.close()
         conn.close()
 
-        # Notificación push a vecinos
         disparar_notificaciones_push(tipo_alerta, u.get('barrio', 'Sector Desconocido'))
 
         return jsonify({"status": "ok"}), 200
@@ -217,12 +211,15 @@ def obtener_reportes():
             cur.execute("""
                 SELECT 
                     r.id,
+                    r.tipo_alerta,
                     r.tipo_alerta AS tipo,
                     r.estado,
                     r.gps,
-                    r.nombre_completo AS vecino,
-                    r.barrio,
-                    r.direccion_exacta AS direccion_exacta,
+                    COALESCE(r.nombre_completo, CONCAT(u.nombres, ' ', u.apellidos)) AS nombre_completo,
+                    COALESCE(r.nombre_completo, CONCAT(u.nombres, ' ', u.apellidos)) AS vecino,
+                    COALESCE(r.barrio, u.barrio, 'Sin Barrio') AS barrio,
+                    COALESCE(r.direccion_exacta, CONCAT(u.calle_principal, ' y ', u.calle_secundaria, ' - Casa: ', u.numero_casa)) AS direccion_exacta,
+                    COALESCE(r.cedula_vecino, u.cedula, 'No disponible') AS cedula_vecino,
                     COALESCE(r.cedula_vecino, u.cedula, 'No disponible') AS cedula,
                     COALESCE(u.celular, 'Sin número') AS celular,
                     COALESCE(u.calle_principal, 'N/A') AS calle_principal,
