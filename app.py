@@ -3,42 +3,48 @@ import json
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_bcrypt import Bcrypt
-from supabase import create_client, Client
+import psycopg2
+from psycopg2.extras import RealDictCursor
 from pywebpush import webpush, WebPushException
 
 app = Flask(__name__)
 CORS(app)
 bcrypt = Bcrypt(app)
 
-# CONFIGURACIÓN DE SUPABASE
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# URL DE CONEXIÓN A NEON POSTGRES (Se lee desde la variable de Render)
+DATABASE_URL = os.environ.get("DATABASE_URL")
+
+def get_db_connection():
+    # Conexión directa a la base de datos PostgreSQL de Neon Tech
+    conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+    return conn
 
 # CONFIGURACIÓN VAPID (Notificaciones Push)
-# Estas deben estar en las variables de entorno de Render
 VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY")
-# Añade esta línea debajo de VAPID_PRIVATE_KEY en app.py
 VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY")
 VAPID_CLAIMS = {"sub": "mailto:NITRAXX07@GMAIL.COM"}
 
 @app.route('/')
 def home():
-    return "Servidor SafeQuito 2026 - Sistema de Seguridad Activo", 200
+    return "Servidor SafeQuito - Sistema Activo en Neon Postgres", 200
 
-# --- FUNCIÓN PARA ENVIAR NOTIFICACIONES A TODOS LOS DISPOSITIVOS ---
+# FUNCIÓN PARA DISPARAR PUSH
 def disparar_notificaciones_push(tipo, barrio):
     try:
-        # Traemos todos los celulares suscritos de Supabase
-        subs_db = supabase.table("suscripciones").select("*").execute()
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM suscripciones;")
+        subs = cur.fetchall()
+        cur.close()
+        conn.close()
         
         payload = {
             "title": f"🚨 AUXILIO EN {barrio.upper()}",
             "body": f"Alerta de: {tipo}. ¡Revisa el mapa ahora!",
-            "icon": "https://tu-usuario.github.io/tu-repo/icon-100.png" # Pon tu URL de GitHub aquí
+            "icon": "https://tu-usuario.github.io/tu-repo/icon-100.png"
         }
 
-        for s in subs_db.data:
+        for s in subs:
             try:
                 webpush(
                     subscription_info={
@@ -50,9 +56,13 @@ def disparar_notificaciones_push(tipo, barrio):
                     vapid_claims=VAPID_CLAIMS
                 )
             except WebPushException as ex:
-                # Si el token caducó (el usuario desinstaló la app), lo borramos
                 if ex.response and ex.response.status_code == 410:
-                    supabase.table("suscripciones").delete().eq("endpoint", s['endpoint']).execute()
+                    conn = get_db_connection()
+                    cur = conn.cursor()
+                    cur.execute("DELETE FROM suscripciones WHERE endpoint = %s;", (s['endpoint'],))
+                    conn.commit()
+                    cur.close()
+                    conn.close()
     except Exception as e:
         print(f"Error enviando push: {e}")
 
@@ -65,8 +75,13 @@ def login():
     if not cedula or not password:
         return jsonify({"status": "error", "msj": "Faltan datos"}), 400
     try:
-        respuesta = supabase.table("usuarios").select("*").eq("cedula", cedula).execute()
-        usuario = respuesta.data[0] if respuesta.data else None
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM usuarios WHERE cedula = %s;", (cedula,))
+        usuario = cur.fetchone()
+        cur.close()
+        conn.close()
+
         if usuario and bcrypt.check_password_hash(usuario['password'], password):
             return jsonify({
                 "status": "ok", 
@@ -78,32 +93,33 @@ def login():
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
 
-# 2. REGISTRO
+# 2. REGISTRO DE VECINO
 @app.route('/api/v1/registrar', methods=['POST'])
 def registrar():
     datos = request.json
     pw_raw = datos.get('password')
     pw_hash = bcrypt.generate_password_hash(pw_raw).decode('utf-8') if pw_raw else None
-    nuevo_usuario = {
-        "cedula": datos.get('cedula'),
-        "nombres": datos.get('nombres'),
-        "apellidos": datos.get('apellidos'),
-        "correo": datos.get('correo'),
-        "celular": datos.get('celular'),
-        "password": pw_hash,
-        "barrio": datos.get('barrio'),
-        "calle_principal": datos.get('calle_principal'),
-        "calle_secundaria": datos.get('calle_secundaria'),
-        "numero_casa": datos.get('numero_casa'),
-        "rol": "vecino"
-    }
+    
     try:
-        supabase.table("usuarios").insert(nuevo_usuario).execute()
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO usuarios (cedula, nombres, apellidos, correo, celular, password, barrio, calle_principal, calle_secundaria, numero_casa, rol)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+        """, (
+            datos.get('cedula'), datos.get('nombres'), datos.get('apellidos'),
+            datos.get('correo'), datos.get('celular'), pw_hash,
+            datos.get('barrio'), datos.get('calle_principal'), datos.get('calle_secundaria'),
+            datos.get('numero_casa'), 'vecino'
+        ))
+        conn.commit()
+        cur.close()
+        conn.close()
         return jsonify({"status": "ok", "msj": "Registro exitoso"}), 201
     except Exception as e:
-        return jsonify({"status": "error", "msj": "Error al registrar"}), 500
+        return jsonify({"status": "error", "msj": "Error al registrar o usuario ya existe"}), 500
 
-# 3. REPORTAR ALERTA (AHORA DISPARA PUSH)
+# 3. REPORTAR ALERTA / AUXILIO
 @app.route('/api/v1/reportar', methods=['POST'])
 def reportar():
     datos = request.json
@@ -111,40 +127,51 @@ def reportar():
     tipo_alerta = datos.get('tipo')
     gps = datos.get('gps')
     try:
-        res_user = supabase.table("usuarios").select("*").eq("cedula", cedula).execute()
-        u = res_user.data[0] if res_user.data else {}
+        conn = get_db_connection()
+        cur = conn.cursor()
         
-        nuevo_reporte = {
-            "cedula_vecino": cedula,
-            "nombre_completo": f"{u.get('nombres')} {u.get('apellidos')}",
-            "tipo_alerta": tipo_alerta,
-            "gps": gps,
-            "barrio": u.get('barrio'),
-            "direccion_exacta": f"{u.get('calle_principal')} y {u.get('calle_secundaria')} - Casa: {u.get('numero_casa')}",
-            "estado": "Pendiente"
-        }
-        supabase.table("reportes").insert(nuevo_reporte).execute()
+        # Consultar datos del usuario
+        cur.execute("SELECT * FROM usuarios WHERE cedula = %s;", (cedula,))
+        u = cur.fetchone() or {}
 
-        # DISPARAR NOTIFICACIÓN PUSH A TODOS
+        nombre_comp = f"{u.get('nombres', '')} {u.get('apellidos', '')}".strip()
+        dir_exacta = f"{u.get('calle_principal', '')} y {u.get('calle_secundaria', '')} - Casa: {u.get('numero_casa', '')}"
+        
+        # Insertar el reporte en Postgres
+        cur.execute("""
+            INSERT INTO reportes (cedula_vecino, nombre_completo, tipo_alerta, gps, barrio, direccion_exacta, estado)
+            VALUES (%s, %s, %s, %s, %s, %s, %s);
+        """, (cedula, nombre_comp, tipo_alerta, gps, u.get('barrio'), dir_exacta, "Pendiente"))
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        # Notificación push a vecinos
         disparar_notificaciones_push(tipo_alerta, u.get('barrio', 'Sector Desconocido'))
 
         return jsonify({"status": "ok"}), 200
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
 
-# 4. RUTA PARA GUARDAR SUSCRIPCIÓN PUSH
+# 4. SUSCRIBIR NOTIFICACIONES PUSH
 @app.route('/api/v1/suscribir', methods=['POST'])
 def suscribir():
     datos = request.json
     cedula = datos.get('cedula')
     sub = datos.get('subscription')
     try:
-        supabase.table("suscripciones").upsert({
-            "cedula": cedula,
-            "endpoint": sub['endpoint'],
-            "p256dh": sub['keys']['p256dh'],
-            "auth": sub['keys']['auth']
-        }, on_conflict="endpoint").execute()
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO suscripciones (cedula, endpoint, p256dh, auth)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (endpoint) DO UPDATE 
+            SET cedula = EXCLUDED.cedula, p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth;
+        """, (cedula, sub['endpoint'], sub['keys']['p256dh'], sub['keys']['auth']))
+        conn.commit()
+        cur.close()
+        conn.close()
         return jsonify({"status": "ok"}), 201
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
@@ -154,54 +181,86 @@ def suscribir():
 def eliminar_usuario(cedula_objetivo):
     admin_cedula = request.headers.get('X-Admin-Cedula') 
     try:
-        check = supabase.table("usuarios").select("rol").eq("cedula", admin_cedula).execute()
-        if not check.data or check.data[0]['rol'] != 'admin':
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT rol FROM usuarios WHERE cedula = %s;", (admin_cedula,))
+        check = cur.fetchone()
+        
+        if not check or check['rol'] != 'admin':
+            cur.close()
+            conn.close()
             return jsonify({"status": "error", "msj": "No autorizado"}), 403
-        supabase.table("usuarios").delete().eq("cedula", cedula_objetivo).execute()
+
+        cur.execute("DELETE FROM usuarios WHERE cedula = %s;", (cedula_objetivo,))
+        conn.commit()
+        cur.close()
+        conn.close()
         return jsonify({"status": "ok", "msj": "Usuario eliminado"}), 200
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
 
-# 6. VER REPORTES (ADMIN, POLICIA, DIRIGENTE)
+# 6. OBTENER REPORTES CON DETALLES DE DIRECCIÓN Y CELULAR
 @app.route('/api/v1/reportes', methods=['GET'])
 def obtener_reportes():
     user_cedula = request.headers.get('X-Usuario-Cedula')
     try:
-        user_info = supabase.table("usuarios").select("rol").eq("cedula", user_cedula).execute()
-        rol = user_info.data[0]['rol'] if user_info.data else 'vecino'
-        
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT rol FROM usuarios WHERE cedula = %s;", (user_cedula,))
+        user_info = cur.fetchone()
+        rol = user_info['rol'] if user_info else 'vecino'
+
         if rol in ['admin', 'dirigente', 'policia']:
-            # CAMBIO AQUÍ: Pedimos los datos del reporte Y los datos del usuario relacionado
-            # Usamos 'usuarios!cedula_vecino' para decirle a Supabase que use esa columna como unión
-            res = supabase.table("reportes").select("""
-                *,
-                usuarios:cedula_vecino (
-                    cedula,
-                    celular,
-                    calle_principal,
-                    calle_secundaria,
-                    numero_casa
-                )
-            """).order("id", desc=True).execute()
-            
-            return jsonify(res.data), 200
+            cur.execute("""
+                SELECT 
+                    r.id,
+                    r.tipo_alerta,
+                    r.estado,
+                    r.gps,
+                    r.nombre_completo,
+                    r.barrio,
+                    u.cedula,
+                    u.celular,
+                    u.calle_principal,
+                    u.calle_secundaria,
+                    u.numero_casa
+                FROM reportes r
+                LEFT JOIN usuarios u ON r.cedula_vecino = u.cedula
+                ORDER BY r.id DESC;
+            """)
+            reportes = cur.fetchall()
+            cur.close()
+            conn.close()
+            return jsonify(reportes), 200
+
+        cur.close()
+        conn.close()
         return jsonify({"status": "error", "msj": "No autorizado"}), 403
     except Exception as e:
-        print(f"Error en reportes: {e}")
         return jsonify({"status": "error", "msj": str(e)}), 500
 
-# 7. ACTUALIZAR ESTADO
+# 7. ACTUALIZAR ESTADO DE LA ALERTA
 @app.route('/api/v1/reportes/<int:id_reporte>', methods=['PUT'])
 def actualizar_estado(id_reporte):
     datos = request.json
     nuevo_estado = datos.get('estado')
     user_cedula = request.headers.get('X-Usuario-Cedula')
     try:
-        user_info = supabase.table("usuarios").select("rol").eq("cedula", user_cedula).execute()
-        rol = user_info.data[0]['rol'] if user_info.data else 'vecino'
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT rol FROM usuarios WHERE cedula = %s;", (user_cedula,))
+        user_info = cur.fetchone()
+        rol = user_info['rol'] if user_info else 'vecino'
+
         if rol in ['admin', 'dirigente', 'policia']:
-            supabase.table("reportes").update({"estado": nuevo_estado}).eq("id", id_reporte).execute()
+            cur.execute("UPDATE reportes SET estado = %s WHERE id = %s;", (nuevo_estado, id_reporte))
+            conn.commit()
+            cur.close()
+            conn.close()
             return jsonify({"status": "ok"}), 200
+        
+        cur.close()
+        conn.close()
         return jsonify({"status": "error"}), 403
     except Exception as e:
         return jsonify({"status": "error"}), 500
