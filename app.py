@@ -208,7 +208,7 @@ def eliminar_usuario(cedula_objetivo):
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
 
-# 5. OBTENER REPORTES (MATCH FORZADO POR TEXTO)
+# 5. OBTENER REPORTES (SOLUCIONADO PARA VECINOS Y ADMINS)
 @app.route('/api/v1/reportes', methods=['GET'])
 def obtener_reportes():
     user_cedula = str(request.headers.get('X-Usuario-Cedula', '')).strip()
@@ -216,41 +216,36 @@ def obtener_reportes():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT rol FROM usuarios WHERE TRIM(cedula::text) = %s;", (user_cedula,))
-        user_info = cur.fetchone()
-        rol = user_info['rol'] if user_info else 'vecino'
-
-        if rol in ['admin', 'dirigente', 'policia']:
-            cur.execute("""
-                SELECT 
-                    r.id,
-                    r.tipo_alerta,
-                    r.estado,
-                    r.gps,
-                    COALESCE(r.barrio, u.barrio) AS barrio,
-                    COALESCE(u.nombres || ' ' || u.apellidos, r.nombre_completo, 'Vecino') AS nombre_completo,
-                    TRIM(r.cedula_vecino::text) AS cedula_vecino,
-                    TRIM(r.cedula_vecino::text) AS cedula,
-                    COALESCE(
-                        NULLIF(r.direccion_exacta, ''), 
-                        CONCAT(u.calle_principal, ' y ', u.calle_secundaria, ' - Casa: ', u.numero_casa)
-                    ) AS direccion_exacta,
-                    COALESCE(u.celular, 'Sin número') AS celular,
-                    COALESCE(u.calle_principal, 'S/N') AS calle_principal,
-                    COALESCE(u.calle_secundaria, 'S/N') AS calle_secundaria,
-                    COALESCE(u.numero_casa, 'S/N') AS numero_casa
-                FROM reportes r
-                LEFT JOIN usuarios u ON TRIM(r.cedula_vecino::text) = TRIM(u.cedula::text)
-                ORDER BY r.id DESC;
-            """)
-            reportes = cur.fetchall()
-            cur.close()
-            conn.close()
-            return jsonify(reportes), 200
         
+        # Consultar reportes para cualquier usuario autenticado
+        cur.execute("""
+            SELECT 
+                r.id,
+                r.tipo_alerta,
+                r.estado,
+                r.gps,
+                COALESCE(r.barrio, u.barrio) AS barrio,
+                COALESCE(u.nombres || ' ' || u.apellidos, r.nombre_completo, 'Vecino') AS nombre_completo,
+                TRIM(r.cedula_vecino::text) AS cedula_vecino,
+                TRIM(r.cedula_vecino::text) AS cedula,
+                COALESCE(
+                    NULLIF(r.direccion_exacta, ''), 
+                    CONCAT(u.calle_principal, ' y ', u.calle_secundaria, ' - Casa: ', u.numero_casa)
+                ) AS direccion_exacta,
+                COALESCE(u.celular, 'Sin número') AS celular,
+                COALESCE(u.calle_principal, 'S/N') AS calle_principal,
+                COALESCE(u.calle_secundaria, 'S/N') AS calle_secundaria,
+                COALESCE(u.numero_casa, 'S/N') AS numero_casa
+            FROM reportes r
+            LEFT JOIN usuarios u ON TRIM(r.cedula_vecino::text) = TRIM(u.cedula::text)
+            ORDER BY r.id DESC;
+        """)
+        reportes = cur.fetchall()
         cur.close()
         conn.close()
-        return jsonify({"status": "error", "msj": "No autorizado"}), 403
+        
+        return jsonify(reportes), 200
+
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
 
