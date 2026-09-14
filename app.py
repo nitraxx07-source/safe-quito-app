@@ -118,7 +118,9 @@ def registrar():
     except Exception as e:
         return jsonify({"status": "error", "msj": "Error al registrar"}), 500
 
-# 3. REPORTAR ALERTA
+import urllib.parse
+
+# 3. REPORTAR ALERTA CON ENLACE DIRECTO A WHATSAPP
 @app.route('/api/v1/reportar', methods=['POST'])
 def reportar():
     datos = request.json
@@ -138,6 +140,7 @@ def reportar():
         calle_p = u.get('calle_principal', '')
         calle_s = u.get('calle_secundaria', '')
         num_c = u.get('numero_casa', '')
+        celular = u.get('celular', 'Sin número')
         
         if calle_p or calle_s:
             dir_exacta = f"{calle_p} y {calle_s} - Casa: {num_c}"
@@ -146,6 +149,7 @@ def reportar():
             
         barrio = u.get('barrio', 'Sin Barrio')
 
+        # Guardar en base de datos
         cur.execute("""
             INSERT INTO reportes (cedula_vecino, nombre_completo, tipo_alerta, gps, barrio, direccion_exacta, estado)
             VALUES (%s, %s, %s, %s, %s, %s, %s);
@@ -155,12 +159,31 @@ def reportar():
         cur.close()
         conn.close()
 
+        # Enviar notificación Push existente
         disparar_notificaciones_push(tipo_alerta, barrio)
 
-        return jsonify({"status": "ok"}), 200
+        # Crear mensaje estructurado para WhatsApp
+        mapa_url = f"https://www.google.com/maps?q={gps}"
+        mensaje_wa = (
+            f"🚨 *ALERTA DE SEGURIDAD - SAFEQUITO* 🚨\n\n"
+            f"⚠️ *Tipo:* {tipo_alerta}\n"
+            f"👤 *Vecino:* {nombre_completo}\n"
+            f"📞 *Contacto:* {celular}\n"
+            f"📍 *Barrio:* {barrio}\n"
+            f"🏠 *Dirección:* {dir_exacta}\n"
+            f"🗺️ *Ubicación GPS:* {mapa_url}"
+        )
+
+        wa_link = f"https://api.whatsapp.com/send?text={urllib.parse.quote(mensaje_wa)}"
+
+        return jsonify({
+            "status": "ok",
+            "msj": "Alerta enviada",
+            "whatsapp_url": wa_link
+        }), 200
+
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
-
 # 4. ELIMINAR USUARIO
 @app.route('/api/v1/usuarios/<cedula_objetivo>', methods=['DELETE'])
 def eliminar_usuario(cedula_objetivo):
