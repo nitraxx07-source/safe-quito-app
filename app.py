@@ -17,6 +17,7 @@ def get_db_connection():
     conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
     return conn
 
+# CONFIGURACIÓN PUSH (Opcional, si usas VAPID)
 VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY")
 VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY")
 VAPID_CLAIMS = {"sub": "mailto:NITRAXX07@GMAIL.COM"}
@@ -25,6 +26,7 @@ VAPID_CLAIMS = {"sub": "mailto:NITRAXX07@GMAIL.COM"}
 def home():
     return "Servidor SafeQuito - Sistema Activo en Neon Postgres", 200
 
+# FUNCIÓN NOTIFICACIONES PUSH
 def disparar_notificaciones_push(tipo, barrio):
     try:
         conn = get_db_connection()
@@ -68,8 +70,10 @@ def login():
     datos = request.json
     cedula = datos.get('cedula')
     password = datos.get('password')
+
     if not cedula or not password:
         return jsonify({"status": "error", "msj": "Faltan datos"}), 400
+
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -85,17 +89,18 @@ def login():
                 "barrio": usuario['barrio'],
                 "rol": usuario.get('rol', 'vecino')
             }), 200
-        return jsonify({"status": "error", "msj": "Cédula o clave incorrecta"}), 401
+        else:
+            return jsonify({"status": "error", "msj": "Cédula o clave incorrecta"}), 401
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
 
-# 2. REGISTRO DE VECINO
+# 2. REGISTRO
 @app.route('/api/v1/registrar', methods=['POST'])
 def registrar():
     datos = request.json
     pw_raw = datos.get('password')
     pw_hash = bcrypt.generate_password_hash(pw_raw).decode('utf-8') if pw_raw else None
-    
+
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -113,15 +118,16 @@ def registrar():
         conn.close()
         return jsonify({"status": "ok", "msj": "Registro exitoso"}), 201
     except Exception as e:
-        return jsonify({"status": "error", "msj": "Error al registrar o usuario ya existe"}), 500
+        return jsonify({"status": "error", "msj": "Error al registrar"}), 500
 
-# 3. REPORTAR ALERTA / AUXILIO
+# 3. REPORTAR ALERTA
 @app.route('/api/v1/reportar', methods=['POST'])
 def reportar():
     datos = request.json
     cedula = datos.get('cedula')
     tipo_alerta = datos.get('tipo')
     gps = datos.get('gps')
+
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -129,29 +135,120 @@ def reportar():
         cur.execute("SELECT * FROM usuarios WHERE cedula = %s;", (cedula,))
         u = cur.fetchone() or {}
 
-        nombre_comp = f"{u.get('nombres', '')} {u.get('apellidos', '')}".strip() or "Vecino"
-        
-        calle_p = u.get('calle_principal') or 'S/N'
-        calle_s = u.get('calle_secundaria') or 'S/N'
-        num_c = u.get('numero_casa') or 'S/N'
-        dir_exacta = f"{calle_p} y {calle_s} - Casa: {num_c}"
-        
+        nombre_completo = f"{u.get('nombres', '')} {u.get('apellidos', '')}".strip() or "Vecino"
+        dir_exacta = f"{u.get('calle_principal', 'S/N')} y {u.get('calle_secundaria', 'S/N')} - Casa: {u.get('numero_casa', 'S/N')}"
+        barrio = u.get('barrio', 'Sin barrio')
+
         cur.execute("""
             INSERT INTO reportes (cedula_vecino, nombre_completo, tipo_alerta, gps, barrio, direccion_exacta, estado)
             VALUES (%s, %s, %s, %s, %s, %s, %s);
-        """, (cedula, nombre_comp, tipo_alerta, gps, u.get('barrio', 'Sin Barrio'), dir_exacta, "Pendiente"))
+        """, (cedula, nombre_completo, tipo_alerta, gps, barrio, dir_exacta, "Pendiente"))
         
         conn.commit()
         cur.close()
         conn.close()
 
-        disparar_notificaciones_push(tipo_alerta, u.get('barrio', 'Sector Desconocido'))
+        disparar_notificaciones_push(tipo_alerta, barrio)
 
         return jsonify({"status": "ok"}), 200
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
 
-# 4. SUSCRIBIR NOTIFICACIONES PUSH
+# 4. ELIMINAR USUARIO (SOLO ADMIN)
+@app.route('/api/v1/usuarios/<cedula_objetivo>', methods=['DELETE'])
+def eliminar_usuario(cedula_objetivo):
+    admin_cedula = request.headers.get('X-Admin-Cedula') 
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT rol FROM usuarios WHERE cedula = %s;", (admin_cedula,))
+        check = cur.fetchone()
+        
+        if not check or check['rol'] != 'admin':
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "msj": "No autorizado"}), 403
+
+        cur.execute("DELETE FROM usuarios WHERE cedula = %s;", (cedula_objetivo,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({"status": "ok", "msj": "Usuario eliminado"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "msj": str(e)}), 500
+
+# 5. VER REPORTES (COMPATIBILIDAD TOTAL)
+@app.route('/api/v1/reportes', methods=['GET'])
+def obtener_reportes():
+    user_cedula = request.headers.get('X-Usuario-Cedula')
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT rol FROM usuarios WHERE cedula = %s;", (user_cedula,))
+        user_info = cur.fetchone()
+        rol = user_info['rol'] if user_info else 'vecino'
+
+        if rol in ['admin', 'dirigente', 'policia']:
+            cur.execute("""
+                SELECT 
+                    r.id,
+                    r.tipo_alerta,
+                    r.estado,
+                    r.gps,
+                    r.barrio,
+                    r.nombre_completo,
+                    r.cedula_vecino,
+                    COALESCE(r.direccion_exacta, CONCAT(u.calle_principal, ' y ', u.calle_secundaria, ' - Casa: ', u.numero_casa)) AS direccion_exacta,
+                    COALESCE(r.cedula_vecino, u.cedula) AS cedula,
+                    COALESCE(u.celular, 'Sin número') AS celular,
+                    COALESCE(u.calle_principal, 'N/A') AS calle_principal,
+                    COALESCE(u.calle_secundaria, 'N/A') AS calle_secundaria,
+                    COALESCE(u.numero_casa, 'N/A') AS numero_casa
+                FROM reportes r
+                LEFT JOIN usuarios u ON r.cedula_vecino = u.cedula
+                ORDER BY r.id DESC;
+            """)
+            reportes = cur.fetchall()
+            cur.close()
+            conn.close()
+            return jsonify(reportes), 200
+        
+        cur.close()
+        conn.close()
+        return jsonify({"status": "error", "msj": "No autorizado"}), 403
+    except Exception as e:
+        return jsonify({"status": "error", "msj": str(e)}), 500
+
+# 6. ACTUALIZAR ESTADO DE REPORTE
+@app.route('/api/v1/reportes/<int:id_reporte>', methods=['PUT'])
+def actualizar_estado(id_reporte):
+    datos = request.json
+    nuevo_estado = datos.get('estado')
+    user_cedula = request.headers.get('X-Usuario-Cedula')
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT rol FROM usuarios WHERE cedula = %s;", (user_cedula,))
+        user_info = cur.fetchone()
+        rol = user_info['rol'] if user_info else 'vecino'
+
+        if rol in ['admin', 'dirigente', 'policia']:
+            cur.execute("UPDATE reportes SET estado = %s WHERE id = %s;", (nuevo_estado, id_reporte))
+            conn.commit()
+            cur.close()
+            conn.close()
+            return jsonify({"status": "ok"}), 200
+        
+        cur.close()
+        conn.close()
+        return jsonify({"status": "error"}), 403
+    except Exception as e:
+        return jsonify({"status": "error"}), 500
+
+# 7. SUSCRIBIR NOTIFICACIONES PUSH
 @app.route('/api/v1/suscribir', methods=['POST'])
 def suscribir():
     datos = request.json
@@ -172,99 +269,6 @@ def suscribir():
         return jsonify({"status": "ok"}), 201
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
-
-# 5. ELIMINAR USUARIO (SOLO ADMIN)
-@app.route('/api/v1/usuarios/<cedula_objetivo>', methods=['DELETE'])
-def eliminar_usuario(cedula_objetivo):
-    admin_cedula = request.headers.get('X-Admin-Cedula') 
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT rol FROM usuarios WHERE cedula = %s;", (admin_cedula,))
-        check = cur.fetchone()
-        
-        if not check or check['rol'] != 'admin':
-            cur.close()
-            conn.close()
-            return jsonify({"status": "error", "msj": "No autorizado"}), 403
-
-        cur.execute("DELETE FROM usuarios WHERE cedula = %s;", (cedula_objetivo,))
-        conn.commit()
-        cur.close()
-        conn.close()
-        return jsonify({"status": "ok", "msj": "Usuario eliminado"}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "msj": str(e)}), 500
-
-# 6. OBTENER REPORTES CON DETALLES DE DIRECCIÓN Y CELULAR
-@app.route('/api/v1/reportes', methods=['GET'])
-def obtener_reportes():
-    user_cedula = request.headers.get('X-Usuario-Cedula')
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT rol FROM usuarios WHERE cedula = %s;", (user_cedula,))
-        user_info = cur.fetchone()
-        rol = user_info['rol'] if user_info else 'vecino'
-
-        if rol in ['admin', 'dirigente', 'policia']:
-            cur.execute("""
-                SELECT 
-                    r.id,
-                    r.tipo_alerta,
-                    r.tipo_alerta AS tipo,
-                    r.estado,
-                    r.gps,
-                    COALESCE(r.nombre_completo, CONCAT(u.nombres, ' ', u.apellidos)) AS nombre_completo,
-                    COALESCE(r.nombre_completo, CONCAT(u.nombres, ' ', u.apellidos)) AS vecino,
-                    COALESCE(r.barrio, u.barrio, 'Sin Barrio') AS barrio,
-                    COALESCE(r.direccion_exacta, CONCAT(u.calle_principal, ' y ', u.calle_secundaria, ' - Casa: ', u.numero_casa)) AS direccion_exacta,
-                    COALESCE(r.cedula_vecino, u.cedula, 'No disponible') AS cedula_vecino,
-                    COALESCE(r.cedula_vecino, u.cedula, 'No disponible') AS cedula,
-                    COALESCE(u.celular, 'Sin número') AS celular,
-                    COALESCE(u.calle_principal, 'N/A') AS calle_principal,
-                    COALESCE(u.calle_secundaria, 'N/A') AS calle_secundaria,
-                    COALESCE(u.numero_casa, 'N/A') AS numero_casa
-                FROM reportes r
-                LEFT JOIN usuarios u ON r.cedula_vecino = u.cedula
-                ORDER BY r.id DESC;
-            """)
-            reportes = cur.fetchall()
-            cur.close()
-            conn.close()
-            return jsonify(reportes), 200
-
-        cur.close()
-        conn.close()
-        return jsonify({"status": "error", "msj": "No autorizado"}), 403
-    except Exception as e:
-        return jsonify({"status": "error", "msj": str(e)}), 500
-
-# 7. ACTUALIZAR ESTADO DE LA ALERTA
-@app.route('/api/v1/reportes/<int:id_reporte>', methods=['PUT'])
-def actualizar_estado(id_reporte):
-    datos = request.json
-    nuevo_estado = datos.get('estado')
-    user_cedula = request.headers.get('X-Usuario-Cedula')
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT rol FROM usuarios WHERE cedula = %s;", (user_cedula,))
-        user_info = cur.fetchone()
-        rol = user_info['rol'] if user_info else 'vecino'
-
-        if rol in ['admin', 'dirigente', 'policia']:
-            cur.execute("UPDATE reportes SET estado = %s WHERE id = %s;", (nuevo_estado, id_reporte))
-            conn.commit()
-            cur.close()
-            conn.close()
-            return jsonify({"status": "ok"}), 200
-        
-        cur.close()
-        conn.close()
-        return jsonify({"status": "error"}), 403
-    except Exception as e:
-        return jsonify({"status": "error"}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
