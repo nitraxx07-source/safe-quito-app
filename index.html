@@ -59,6 +59,8 @@
         .oculto { display: none; }
         .link { color: var(--azul-oscuro); cursor: pointer; display: block; margin-top: 15px; font-weight: bold; text-decoration: underline; }
         .btn-logout { background: #eee; border: none; color: #666; padding: 12px; border-radius: 12px; margin-top: 30px; cursor: pointer; width: 100%; font-weight: bold; }
+
+        .footer { margin-top: 25px; font-size: 11px; color: #7f8c8d; text-align: center; font-weight: 500; }
     </style>
 </head>
 <body>
@@ -130,6 +132,11 @@
         </div>
 
         <button class="btn-logout" onclick="cerrarSesion()">Cerrar Sesión</button>
+    </div>
+
+    <!-- PIE DE PÁGINA -->
+    <div class="footer">
+        <p>© JV co. Derechos reservados</p>
     </div>
 </div>
 
@@ -214,90 +221,88 @@
         if (rol === 'admin') document.getElementById('panel-admin').classList.remove('oculto');
     }
 
-async function cargarReportes() {
-    try {
-        const res = await fetch(`${API_URL}/reportes`, { headers: {'X-Usuario-Cedula': miCedula} });
-        const reportes = await res.json();
-        
-        const activos = reportes.filter(r => r.estado === 'Pendiente' || r.estado === 'En transcurso');
-        const soloPendientes = activos.filter(r => r.estado === 'Pendiente');
-        document.getElementById('contador').innerText = soloPendientes.length;
-
-        let html = "";
-        activos.forEach(r => {
-            // Evaluamos si los datos vienen dentro de r.usuarios o directamente en r
-            const u = r.usuarios || {}; 
+    async function cargarReportes() {
+        try {
+            const res = await fetch(`${API_URL}/reportes`, { headers: {'X-Usuario-Cedula': miCedula} });
+            const reportes = await res.json();
             
-            // Extracción segura de datos
-            const nombreCompleto = r.nombre_completo || u.nombre_completo || 'Vecino';
-            const cedulaVecino = r.cedula || r.cedula_vecino || u.cedula || 'No disponible';
-            const celularVecino = r.celular || u.celular || '';
-            const barrioVecino = r.barrio || u.barrio || 'Sin Barrio';
-            
-            // Construcción de la dirección exacta
-            let direccionCompleta = "";
-            if (r.direccion_exacta) {
-                direccionCompleta = r.direccion_exacta;
-            } else if (u.calle_principal || r.calle_principal) {
-                const principal = u.calle_principal || r.calle_principal || 'N/A';
-                const secundaria = u.calle_secundaria || r.calle_secundaria || 'N/A';
-                const casa = u.numero_casa || r.numero_casa || 'N/A';
-                direccionCompleta = `${principal} y ${secundaria} - Casa: ${casa}`;
-            } else {
-                direccionCompleta = 'No registrada';
-            }
+            const activos = reportes.filter(r => r.estado === 'Pendiente' || r.estado === 'En transcurso');
+            const soloPendientes = activos.filter(r => r.estado === 'Pendiente');
+            document.getElementById('contador').innerText = soloPendientes.length;
 
-            const coordsReal = r.gps || ''; 
-            const mapaLink = `https://www.google.com/maps?q=${coordsReal}`;
-            
-            const esEnCurso = r.estado === 'En transcurso';
-            const colorBorde = esEnCurso ? '#2980b9' : 'var(--rojo-alerta)';
-            const textoBadge = esEnCurso ? 'EN CURSO' : 'PENDIENTE';
-            const colorBadge = esEnCurso ? '#2980b9' : '#e74c3c';
-
-            html += `
-            <div class="card-reporte" style="border-left: 6px solid ${colorBorde}; text-align: left; padding: 15px; position: relative; background: white; border-radius: 10px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-                <span style="background:${colorBadge}; color:white; padding:2px 8px; border-radius:6px; font-size:10px; font-weight:bold; position:absolute; right:10px; top:10px;">
-                    ${textoBadge}
-                </span>
+            let html = "";
+            activos.forEach(r => {
+                const u = r.usuarios || {}; 
                 
-                <h3 style="margin: 0 0 10px 0; color: var(--azul-oscuro); text-transform: uppercase; font-size: 16px;">${r.tipo_alerta}</h3>
+                const nombreCompleto = r.nombre_completo || u.nombre_completo || 'Vecino';
+                const cedulaVecino = r.cedula || r.cedula_vecino || u.cedula || 'No disponible';
+                const celularVecino = r.celular || u.celular || '';
+                const barrioVecino = r.barrio || u.barrio || 'Sin Barrio';
                 
-                <div style="font-size: 13px; line-height: 1.6;">
-                    <b>👤 Vecino:</b> ${nombreCompleto} <br>
-                    <b>🆔 Cédula:</b> ${cedulaVecino} <br>
-                    <b>📞 Celular:</b> ${celularVecino ? `<a href="tel:${celularVecino}" style="color: #27ae60; font-weight: bold; text-decoration: none;">${celularVecino}</a>` : 'Sin número'} <br>
+                let direccionCompleta = "";
+                if (r.direccion_exacta) {
+                    direccionCompleta = r.direccion_exacta;
+                } else if (u.calle_principal || r.calle_principal) {
+                    const principal = u.calle_principal || r.calle_principal || 'N/A';
+                    const secundaria = u.calle_secundaria || r.calle_secundaria || 'N/A';
+                    const casa = u.numero_casa || r.numero_casa || 'N/A';
+                    direccionCompleta = `${principal} y ${secundaria} - Casa: ${casa}`;
+                } else {
+                    direccionCompleta = 'No registrada';
+                }
+
+                const coordsReal = r.gps || ''; 
+                const mapaLink = `https://www.google.com/maps?q=${coordsReal}`;
+                
+                const esEnCurso = r.estado === 'En transcurso';
+                const colorBorde = esEnCurso ? '#2980b9' : 'var(--rojo-alerta)';
+                const textoBadge = esEnCurso ? 'EN CURSO' : 'PENDIENTE';
+                const colorBadge = esEnCurso ? '#2980b9' : '#e74c3c';
+
+                html += `
+                <div class="card-reporte" style="border-left: 6px solid ${colorBorde}; text-align: left; padding: 15px; position: relative; background: white; border-radius: 10px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                    <span style="background:${colorBadge}; color:white; padding:2px 8px; border-radius:6px; font-size:10px; font-weight:bold; position:absolute; right:10px; top:10px;">
+                        ${textoBadge}
+                    </span>
                     
-                    <div style="background: #f9f9f9; padding: 10px; border-radius: 10px; margin-top: 10px; border: 1px dashed #ccc;">
-                        <small style="color: #666; display: block; margin-bottom: 5px;">📍 UBICACIÓN REGISTRADA:</small>
-                        <b>Barrio:</b> ${barrioVecino} <br>
-                        <b>Dirección:</b> ${direccionCompleta} <br>
+                    <h3 style="margin: 0 0 10px 0; color: var(--azul-oscuro); text-transform: uppercase; font-size: 16px;">${r.tipo_alerta}</h3>
+                    
+                    <div style="font-size: 13px; line-height: 1.6;">
+                        <b>👤 Vecino:</b> ${nombreCompleto} <br>
+                        <b>🆔 Cédula:</b> ${cedulaVecino} <br>
+                        <b>📞 Celular:</b> ${celularVecino ? `<a href="tel:${celularVecino}" style="color: #27ae60; font-weight: bold; text-decoration: none;">${celularVecino}</a>` : 'Sin número'} <br>
                         
-                        <hr style="border: 0; border-top: 1px solid #eee; margin: 8px 0;">
-                        
-                        <b>Punto de Emergencia (GPS):</b> <br>
-                        <a href="${mapaLink}" target="_blank" style="display: inline-block; margin-top: 5px; background: #db4437; color: white; padding: 6px 12px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 11px; width: 100%; text-align: center;">
-                            🚩 VER EN MAPA EN TIEMPO REAL
-                        </a>
+                        <div style="background: #f9f9f9; padding: 10px; border-radius: 10px; margin-top: 10px; border: 1px dashed #ccc;">
+                            <small style="color: #666; display: block; margin-bottom: 5px;">📍 UBICACIÓN REGISTRADA:</small>
+                            <b>Barrio:</b> ${barrioVecino} <br>
+                            <b>Dirección:</b> ${direccionCompleta} <br>
+                            
+                            <hr style="border: 0; border-top: 1px solid #eee; margin: 8px 0;">
+                            
+                            <b>Punto de Emergencia (GPS):</b> <br>
+                            <a href="${mapaLink}" target="_blank" style="display: inline-block; margin-top: 5px; background: #db4437; color: white; padding: 6px 12px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 11px; width: 100%; text-align: center;">
+                                🚩 VER EN MAPA EN TIEMPO REAL
+                            </a>
+                        </div>
                     </div>
-                </div>
 
-                <div style="display:flex; gap:10px; margin-top: 15px;">
-                    ${!esEnCurso ? `
-                        <button class="btn-accion" style="background:#2980b9; color: white; border: none; padding: 10px; border-radius: 5px; flex: 1; cursor: pointer; font-weight: bold;" onclick="cambiarEstado(${r.id}, 'En transcurso')">
-                            TOMAR ALERTA
-                        </button>` : ''}
-                    <button class="btn-accion" style="background:#27ae60; color: white; border: none; padding: 10px; border-radius: 5px; flex: 1; cursor: pointer; font-weight: bold;" onclick="cambiarEstado(${r.id}, 'Atendido')">
-                        FINALIZAR
-                    </button>
-                </div>
-            </div>`;
-        });
-        document.getElementById('lista-reportes').innerHTML = html || "<p style='font-size:12px;color:gray;text-align:center;'>No hay alertas activas.</p>";
-    } catch(e) { 
-        console.log("Error al cargar reportes", e); 
+                    <div style="display:flex; gap:10px; margin-top: 15px;">
+                        ${!esEnCurso ? `
+                            <button class="btn-accion" style="background:#2980b9; color: white; border: none; padding: 10px; border-radius: 5px; flex: 1; cursor: pointer; font-weight: bold;" onclick="cambiarEstado(${r.id}, 'En transcurso')">
+                                TOMAR ALERTA
+                            </button>` : ''}
+                        <button class="btn-accion" style="background:#27ae60; color: white; border: none; padding: 10px; border-radius: 5px; flex: 1; cursor: pointer; font-weight: bold;" onclick="cambiarEstado(${r.id}, 'Atendido')">
+                            FINALIZAR
+                        </button>
+                    </div>
+                </div>`;
+            });
+            document.getElementById('lista-reportes').innerHTML = html || "<p style='font-size:12px;color:gray;text-align:center;'>No hay alertas activas.</p>";
+        } catch(e) { 
+            console.log("Error al cargar reportes", e); 
+        }
     }
-}
+
     async function cambiarEstado(id, nuevo) {
         try {
             const res = await fetch(`${API_URL}/reportes/${id}`, {
@@ -335,38 +340,36 @@ async function cargarReportes() {
     }
 
     async function enviarAlerta(tipo) {
-    if (!confirm(`¿Enviar alerta de ${tipo}?`)) return;
+        if (!confirm(`¿Enviar alerta de ${tipo}?`)) return;
 
-    navigator.geolocation.getCurrentPosition(async (pos) => {
-        const gps = `${pos.coords.latitude},${pos.coords.longitude}`;
-        try {
-            const res = await fetch(`${API_URL}/reportar`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    cedula: miCedula, 
-                    tipo: tipo, 
-                    gps: gps
-                })
-            });
+        navigator.geolocation.getCurrentPosition(async (pos) => {
+            const gps = `${pos.coords.latitude},${pos.coords.longitude}`;
+            try {
+                const res = await fetch(`${API_URL}/reportar`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        cedula: miCedula, 
+                        tipo: tipo, 
+                        gps: gps
+                    })
+                });
 
-            const data = await res.json();
+                const data = await res.json();
 
-            if (res.ok) {
-                alert("✅ Alerta enviada correctamente.");
-
-                // Si viene la URL de WhatsApp, redirigir para compartir en el grupo
-                if (data.whatsapp_url) {
-                    window.open(data.whatsapp_url, '_blank');
+                if (res.ok) {
+                    alert("✅ Alerta enviada correctamente.");
+                    if (data.whatsapp_url) {
+                        window.open(data.whatsapp_url, '_blank');
+                    }
+                } else {
+                    alert("❌ Error al enviar: " + (data.msj || ''));
                 }
-            } else {
-                alert("❌ Error al enviar: " + (data.msj || ''));
+            } catch(e) { 
+                alert("📡 Error de red."); 
             }
-        } catch(e) { 
-            alert("📡 Error de red."); 
-        }
-    }, () => alert("📍 Activa el GPS."), {enableHighAccuracy: true});
-}
+        }, () => alert("📍 Activa el GPS."), {enableHighAccuracy: true});
+    }
 
     // --- LÓGICA DE NOTIFICACIONES PUSH ---
 
@@ -378,20 +381,20 @@ async function cargarReportes() {
         });
     }
 
- function urlBase64ToUint8Array(base64String) {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding)
-        .replace(/\-/g, '+')
-        .replace(/_/g, '/');
+    function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding)
+            .replace(/\-/g, '+')
+            .replace(/_/g, '/');
 
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
 
-    for (let i = 0; i < rawData.length; ++i) {
-        outputArray[i] = rawData.charCodeAt(i);
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
     }
-    return outputArray;
-}
 
     async function activarAlertasSeguridad() {
         try {
@@ -403,25 +406,19 @@ async function cargarReportes() {
 
             const registro = await navigator.serviceWorker.ready;
             
-            // 1. Limpieza de suscripciones previas
             const suscripcionExistente = await registro.pushManager.getSubscription();
             if (suscripcionExistente) {
                 await suscripcionExistente.unsubscribe();
             }
             
-            // 2. LLAVE LIMPIA (Sin espacios ni saltos de línea)
             const publicVapidKey = 'BEuZiYU1P_PqZZIKlJLoIBET6Z1bbdPOuVrmuNuVK8pGC2_ZPZwg77uqYCR5IEcsqcXtGqBAQCM0ZZKcerKysPU';
-            
-            // 3. Conversión con manejo de errores
             const convertedVapidKey = urlBase64ToUint8Array(publicVapidKey);
 
-            // 4. Suscripción
             const suscripcion = await registro.pushManager.subscribe({
                 userVisibleOnly: true,
                 applicationServerKey: convertedVapidKey
             });
 
-            // 5. Envío al servidor
             const respuesta = await fetch(`${API_URL}/suscribir`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -439,12 +436,9 @@ async function cargarReportes() {
             }
         } catch (error) {
             console.error("Detalle del error:", error);
-            // Si el error persiste, lo mostramos completo para diagnosticar
             alert("Error: " + error.name + " - " + error.message);
         }
     }
 </script>
-</body>
-</html>
 </body>
 </html>
