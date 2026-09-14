@@ -6,6 +6,7 @@ from flask_bcrypt import Bcrypt
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from pywebpush import webpush, WebPushException
+import urllib.parse
 
 app = Flask(__name__)
 CORS(app)
@@ -118,8 +119,6 @@ def registrar():
     except Exception as e:
         return jsonify({"status": "error", "msj": "Error al registrar"}), 500
 
-import urllib.parse
-
 # 3. REPORTAR ALERTA CON ENLACE DIRECTO A WHATSAPP
 @app.route('/api/v1/reportar', methods=['POST'])
 def reportar():
@@ -184,6 +183,7 @@ def reportar():
 
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
+
 # 4. ELIMINAR USUARIO
 @app.route('/api/v1/usuarios/<cedula_objetivo>', methods=['DELETE'])
 def eliminar_usuario(cedula_objetivo):
@@ -208,16 +208,14 @@ def eliminar_usuario(cedula_objetivo):
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
 
-# 5. OBTENER REPORTES (SOLUCIONADO PARA VECINOS Y ADMINS)
+# 5. OBTENER REPORTES (DISPONIBLE PARA TODOS LOS ROLES CON TUS DATOS EXACTOS)
 @app.route('/api/v1/reportes', methods=['GET'])
 def obtener_reportes():
-    user_cedula = str(request.headers.get('X-Usuario-Cedula', '')).strip()
-
     try:
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Consultar reportes para cualquier usuario autenticado
+        # Ejecutamos exactamente la misma consulta completa para todos los roles
         cur.execute("""
             SELECT 
                 r.id,
@@ -243,7 +241,6 @@ def obtener_reportes():
         reportes = cur.fetchall()
         cur.close()
         conn.close()
-        
         return jsonify(reportes), 200
 
     except Exception as e:
