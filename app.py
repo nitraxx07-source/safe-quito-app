@@ -17,7 +17,6 @@ def get_db_connection():
     conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
     return conn
 
-# CONFIGURACIÓN PUSH (Opcional, si usas VAPID)
 VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY")
 VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY")
 VAPID_CLAIMS = {"sub": "mailto:NITRAXX07@GMAIL.COM"}
@@ -26,7 +25,6 @@ VAPID_CLAIMS = {"sub": "mailto:NITRAXX07@GMAIL.COM"}
 def home():
     return "Servidor SafeQuito - Sistema Activo en Neon Postgres", 200
 
-# FUNCIÓN NOTIFICACIONES PUSH
 def disparar_notificaciones_push(tipo, barrio):
     try:
         conn = get_db_connection()
@@ -68,7 +66,7 @@ def disparar_notificaciones_push(tipo, barrio):
 @app.route('/api/v1/login', methods=['POST'])
 def login():
     datos = request.json
-    cedula = datos.get('cedula')
+    cedula = str(datos.get('cedula', '')).strip()
     password = datos.get('password')
 
     if not cedula or not password:
@@ -77,7 +75,7 @@ def login():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT * FROM usuarios WHERE cedula = %s;", (cedula,))
+        cur.execute("SELECT * FROM usuarios WHERE TRIM(cedula::text) = %s;", (cedula,))
         usuario = cur.fetchone()
         cur.close()
         conn.close()
@@ -108,7 +106,7 @@ def registrar():
             INSERT INTO usuarios (cedula, nombres, apellidos, correo, celular, password, barrio, calle_principal, calle_secundaria, numero_casa, rol)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
         """, (
-            datos.get('cedula'), datos.get('nombres'), datos.get('apellidos'),
+            str(datos.get('cedula', '')).strip(), datos.get('nombres'), datos.get('apellidos'),
             datos.get('correo'), datos.get('celular'), pw_hash,
             datos.get('barrio'), datos.get('calle_principal'), datos.get('calle_secundaria'),
             datos.get('numero_casa'), 'vecino'
@@ -124,7 +122,7 @@ def registrar():
 @app.route('/api/v1/reportar', methods=['POST'])
 def reportar():
     datos = request.json
-    cedula = datos.get('cedula')
+    cedula = str(datos.get('cedula', '')).strip()
     tipo_alerta = datos.get('tipo')
     gps = datos.get('gps')
 
@@ -132,12 +130,21 @@ def reportar():
         conn = get_db_connection()
         cur = conn.cursor()
         
-        cur.execute("SELECT * FROM usuarios WHERE cedula = %s;", (cedula,))
+        cur.execute("SELECT * FROM usuarios WHERE TRIM(cedula::text) = %s;", (cedula,))
         u = cur.fetchone() or {}
 
         nombre_completo = f"{u.get('nombres', '')} {u.get('apellidos', '')}".strip() or "Vecino"
-        dir_exacta = f"{u.get('calle_principal', 'S/N')} y {u.get('calle_secundaria', 'S/N')} - Casa: {u.get('numero_casa', 'S/N')}"
-        barrio = u.get('barrio', 'Sin barrio')
+        
+        calle_p = u.get('calle_principal', '')
+        calle_s = u.get('calle_secundaria', '')
+        num_c = u.get('numero_casa', '')
+        
+        if calle_p or calle_s:
+            dir_exacta = f"{calle_p} y {calle_s} - Casa: {num_c}"
+        else:
+            dir_exacta = "Dirección registrada según mapa"
+            
+        barrio = u.get('barrio', 'Sin Barrio')
 
         cur.execute("""
             INSERT INTO reportes (cedula_vecino, nombre_completo, tipo_alerta, gps, barrio, direccion_exacta, estado)
@@ -154,15 +161,15 @@ def reportar():
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
 
-# 4. ELIMINAR USUARIO (SOLO ADMIN)
+# 4. ELIMINAR USUARIO
 @app.route('/api/v1/usuarios/<cedula_objetivo>', methods=['DELETE'])
 def eliminar_usuario(cedula_objetivo):
-    admin_cedula = request.headers.get('X-Admin-Cedula') 
+    admin_cedula = str(request.headers.get('X-Admin-Cedula', '')).strip()
 
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT rol FROM usuarios WHERE cedula = %s;", (admin_cedula,))
+        cur.execute("SELECT rol FROM usuarios WHERE TRIM(cedula::text) = %s;", (admin_cedula,))
         check = cur.fetchone()
         
         if not check or check['rol'] != 'admin':
@@ -170,7 +177,7 @@ def eliminar_usuario(cedula_objetivo):
             conn.close()
             return jsonify({"status": "error", "msj": "No autorizado"}), 403
 
-        cur.execute("DELETE FROM usuarios WHERE cedula = %s;", (cedula_objetivo,))
+        cur.execute("DELETE FROM usuarios WHERE TRIM(cedula::text) = %s;", (str(cedula_objetivo).strip(),))
         conn.commit()
         cur.close()
         conn.close()
@@ -178,15 +185,15 @@ def eliminar_usuario(cedula_objetivo):
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
 
-# 5. VER REPORTES (COMPATIBILIDAD TOTAL)
+# 5. OBTENER REPORTES (MATCH FORZADO POR TEXTO)
 @app.route('/api/v1/reportes', methods=['GET'])
 def obtener_reportes():
-    user_cedula = request.headers.get('X-Usuario-Cedula')
+    user_cedula = str(request.headers.get('X-Usuario-Cedula', '')).strip()
 
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT rol FROM usuarios WHERE cedula = %s;", (user_cedula,))
+        cur.execute("SELECT rol FROM usuarios WHERE TRIM(cedula::text) = %s;", (user_cedula,))
         user_info = cur.fetchone()
         rol = user_info['rol'] if user_info else 'vecino'
 
@@ -197,17 +204,20 @@ def obtener_reportes():
                     r.tipo_alerta,
                     r.estado,
                     r.gps,
-                    r.barrio,
-                    r.nombre_completo,
-                    r.cedula_vecino,
-                    COALESCE(r.direccion_exacta, CONCAT(u.calle_principal, ' y ', u.calle_secundaria, ' - Casa: ', u.numero_casa)) AS direccion_exacta,
-                    COALESCE(r.cedula_vecino, u.cedula) AS cedula,
+                    COALESCE(r.barrio, u.barrio) AS barrio,
+                    COALESCE(u.nombres || ' ' || u.apellidos, r.nombre_completo, 'Vecino') AS nombre_completo,
+                    TRIM(r.cedula_vecino::text) AS cedula_vecino,
+                    TRIM(r.cedula_vecino::text) AS cedula,
+                    COALESCE(
+                        NULLIF(r.direccion_exacta, ''), 
+                        CONCAT(u.calle_principal, ' y ', u.calle_secundaria, ' - Casa: ', u.numero_casa)
+                    ) AS direccion_exacta,
                     COALESCE(u.celular, 'Sin número') AS celular,
-                    COALESCE(u.calle_principal, 'N/A') AS calle_principal,
-                    COALESCE(u.calle_secundaria, 'N/A') AS calle_secundaria,
-                    COALESCE(u.numero_casa, 'N/A') AS numero_casa
+                    COALESCE(u.calle_principal, 'S/N') AS calle_principal,
+                    COALESCE(u.calle_secundaria, 'S/N') AS calle_secundaria,
+                    COALESCE(u.numero_casa, 'S/N') AS numero_casa
                 FROM reportes r
-                LEFT JOIN usuarios u ON r.cedula_vecino = u.cedula
+                LEFT JOIN usuarios u ON TRIM(r.cedula_vecino::text) = TRIM(u.cedula::text)
                 ORDER BY r.id DESC;
             """)
             reportes = cur.fetchall()
@@ -221,17 +231,17 @@ def obtener_reportes():
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
 
-# 6. ACTUALIZAR ESTADO DE REPORTE
+# 6. ACTUALIZAR ESTADO
 @app.route('/api/v1/reportes/<int:id_reporte>', methods=['PUT'])
 def actualizar_estado(id_reporte):
     datos = request.json
     nuevo_estado = datos.get('estado')
-    user_cedula = request.headers.get('X-Usuario-Cedula')
+    user_cedula = str(request.headers.get('X-Usuario-Cedula', '')).strip()
 
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT rol FROM usuarios WHERE cedula = %s;", (user_cedula,))
+        cur.execute("SELECT rol FROM usuarios WHERE TRIM(cedula::text) = %s;", (user_cedula,))
         user_info = cur.fetchone()
         rol = user_info['rol'] if user_info else 'vecino'
 
@@ -252,7 +262,7 @@ def actualizar_estado(id_reporte):
 @app.route('/api/v1/suscribir', methods=['POST'])
 def suscribir():
     datos = request.json
-    cedula = datos.get('cedula')
+    cedula = str(datos.get('cedula', '')).strip()
     sub = datos.get('subscription')
     try:
         conn = get_db_connection()
