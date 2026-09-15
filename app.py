@@ -21,7 +21,7 @@ VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY")
 VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY")
 VAPID_CLAIMS = {"sub": "mailto:NITRAXX07@GMAIL.COM"}
 
-# Memoria temporal para coordenadas en tiempo real y chat
+# Memoria temporal para coordenadas en tiempo real y chat de alertas
 trayectos_activos = {}
 chats_alertas = {}
 
@@ -100,10 +100,19 @@ def login():
         if conn:
             conn.close()
 
-# 2. REGISTRO
+# 2. REGISTRO (CON CUMPLIMIENTO LOPDP ECUADOR)
 @app.route('/api/v1/registrar', methods=['POST'])
 def registrar():
     datos = request.json or {}
+    
+    # Validación legal LOPDP
+    acepto_terminos = datos.get('acepto_terminos', False)
+    if not acepto_terminos:
+        return jsonify({
+            "status": "error", 
+            "msj": "Debe aceptar la Política de Privacidad conforme a la LOPDP de Ecuador para registrarse."
+        }), 400
+
     pw_raw = datos.get('password')
     pw_hash = bcrypt.generate_password_hash(pw_raw).decode('utf-8') if pw_raw else None
 
@@ -112,19 +121,22 @@ def registrar():
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("""
-            INSERT INTO usuarios (cedula, nombres, apellidos, correo, celular, password, barrio, calle_principal, calle_secundaria, numero_casa, rol)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+            INSERT INTO usuarios (
+                cedula, nombres, apellidos, correo, celular, password, 
+                barrio, calle_principal, calle_secundaria, numero_casa, rol, acepto_terminos
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
         """, (
             str(datos.get('cedula', '')).strip(), datos.get('nombres'), datos.get('apellidos'),
             datos.get('correo'), datos.get('celular'), pw_hash,
             datos.get('barrio'), datos.get('calle_principal'), datos.get('calle_secundaria'),
-            datos.get('numero_casa'), 'vecino'
+            datos.get('numero_casa'), 'vecino', True
         ))
         conn.commit()
         cur.close()
-        return jsonify({"status": "ok", "msj": "Registro exitoso"}), 201
+        return jsonify({"status": "ok", "msj": "Registro exitoso y consentimiento registrado"}), 201
     except Exception as e:
-        return jsonify({"status": "error", "msj": "Error al registrar"}), 500
+        return jsonify({"status": "error", "msj": "Error al registrar: " + str(e)}), 500
     finally:
         if conn:
             conn.close()
@@ -194,10 +206,11 @@ def reportar():
         if conn:
             conn.close()
 
-# 4. ELIMINAR USUARIO
+# 4. ELIMINAR USUARIO (CUMPLIMIENTO DERECHO DE SUPRESIÓN / LOPDP)
 @app.route('/api/v1/usuarios/<cedula_objetivo>', methods=['DELETE'])
 def eliminar_usuario(cedula_objetivo):
     admin_cedula = str(request.headers.get('X-Admin-Cedula') or request.headers.get('X-Usuario-Cedula', '')).strip()
+    target = str(cedula_objetivo).strip()
 
     conn = None
     try:
@@ -210,10 +223,17 @@ def eliminar_usuario(cedula_objetivo):
             cur.close()
             return jsonify({"status": "error", "msj": "No autorizado"}), 403
 
-        cur.execute("DELETE FROM usuarios WHERE TRIM(cedula::text) = %s;", (str(cedula_objetivo).strip(),))
+        # Eliminación de suscripciones y limpieza de trayectos
+        cur.execute("DELETE FROM suscripciones WHERE TRIM(cedula::text) = %s;", (target,))
+        cur.execute("DELETE FROM usuarios WHERE TRIM(cedula::text) = %s;", (target,))
+        
         conn.commit()
         cur.close()
-        return jsonify({"status": "ok", "msj": "Usuario eliminado"}), 200
+
+        # Eliminar trayecto activo en RAM si existía
+        trayectos_activos.pop(target, None)
+
+        return jsonify({"status": "ok", "msj": "Usuario y suscripciones eliminados correctamente"}), 200
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
     finally:
