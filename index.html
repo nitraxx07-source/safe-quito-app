@@ -384,17 +384,18 @@
                         </div>
                     </div>
 
-                    ${esDuenoOAutorizado ? `
-                        <div style="display:flex; gap:10px; margin-top: 8px;" onclick="event.stopPropagation()">
-                            ${!esEnCurso && !esCaminata ? `
-                                <button class="btn-accion" style="background:#2980b9;" onclick="cambiarEstado(${r.id}, 'En transcurso')">
-                                    TOMAR ALERTA
-                                </button>` : ''}
-                            <button class="btn-accion" style="background:#27ae60;" onclick="finalizarAlertaEspecifica(${r.id})">
-                                ✅ FINALIZAR / LLEGUÉ BIEN
-                            </button>
-                        </div>
-                    ` : ''}
+                    // REEMPLÁZALO POR ESTE:
+${esDuenoOAutorizado ? `
+    <div style="display:flex; gap:10px; margin-top: 8px;" onclick="event.stopPropagation()">
+        ${!esEnCurso ? `
+            <button class="btn-accion" style="background:#2980b9;" onclick="cambiarEstado(${r.id}, 'En progreso')">
+                TOMAR
+            </button>` : ''}
+        <button class="btn-accion" style="background:#27ae60;" onclick="finalizarAlertaEspecifica(${r.id})">
+            FINALIZAR
+        </button>
+    </div>
+` : ''}
                 </div>`;
                 
                 setTimeout(() => cargarChat(r.id), 200);
