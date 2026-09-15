@@ -21,7 +21,7 @@ VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY")
 VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY")
 VAPID_CLAIMS = {"sub": "mailto:NITRAXX07@GMAIL.COM"}
 
-# Memoria temporal para coordenadas en tiempo real y chat de alertas
+# Memoria temporal para trayectos y chat
 trayectos_activos = {}
 chats_alertas = {}
 
@@ -105,7 +105,6 @@ def login():
 def registrar():
     datos = request.json or {}
     
-    # Validación legal LOPDP
     acepto_terminos = datos.get('acepto_terminos', False)
     if not acepto_terminos:
         return jsonify({
@@ -206,7 +205,7 @@ def reportar():
         if conn:
             conn.close()
 
-# 4. ELIMINAR USUARIO (CUMPLIMIENTO DERECHO DE SUPRESIÓN / LOPDP)
+# 4. ELIMINAR USUARIO (LOPDP)
 @app.route('/api/v1/usuarios/<cedula_objetivo>', methods=['DELETE'])
 def eliminar_usuario(cedula_objetivo):
     admin_cedula = str(request.headers.get('X-Admin-Cedula') or request.headers.get('X-Usuario-Cedula', '')).strip()
@@ -223,14 +222,12 @@ def eliminar_usuario(cedula_objetivo):
             cur.close()
             return jsonify({"status": "error", "msj": "No autorizado"}), 403
 
-        # Eliminación de suscripciones y limpieza de trayectos
         cur.execute("DELETE FROM suscripciones WHERE TRIM(cedula::text) = %s;", (target,))
         cur.execute("DELETE FROM usuarios WHERE TRIM(cedula::text) = %s;", (target,))
         
         conn.commit()
         cur.close()
 
-        # Eliminar trayecto activo en RAM si existía
         trayectos_activos.pop(target, None)
 
         return jsonify({"status": "ok", "msj": "Usuario y suscripciones eliminados correctamente"}), 200
@@ -378,18 +375,27 @@ def iniciar_trayecto():
         """, (cedula, nombre_completo, 'Ruta Segura', gps, barrio, f"Hacia: {destino}", 'En transcurso'))
         
         alerta_creada = cur.fetchone()
+        alerta_id = alerta_creada['id'] if alerta_creada else None
+
+        if alerta_id and gps and ',' in gps:
+            lat, lng = gps.split(',')
+            cur.execute("""
+                INSERT INTO puntos_trayecto (alerta_id, cedula, latitud, longitud)
+                VALUES (%s, %s, %s, %s);
+            """, (alerta_id, cedula, float(lat), float(lng)))
+
         conn.commit()
         cur.close()
 
         trayectos_activos[cedula] = {
-            'id_reporte': alerta_creada['id'] if alerta_creada else None,
+            'id_reporte': alerta_id,
             'salida': salida, 
             'destino': destino, 
             'lat': None, 
             'lng': None, 
             'estado': 'en_camino'
         }
-        return jsonify({'status': 'ok', 'id': alerta_creada['id'] if alerta_creada else None}), 200
+        return jsonify({'status': 'ok', 'id': alerta_id}), 200
     except Exception as e:
         return jsonify({'status': 'error', 'msj': str(e)}), 500
     finally:
@@ -402,44 +408,83 @@ def actualizar_trayecto():
     cedula = str(data.get('cedula', '')).strip()
     lat = data.get('lat')
     lng = data.get('lng')
-    
+    alerta_id = data.get('alerta_id')
+
+    if not lat or not lng:
+        return jsonify({'status': 'error', 'msj': 'Faltan coordenadas'}), 400
+
     if cedula in trayectos_activos:
         trayectos_activos[cedula]['lat'] = lat
         trayectos_activos[cedula]['lng'] = lng
-        
-        conn = None
-        try:
-            conn = get_db_connection()
-            cur = conn.cursor()
-            cur.execute("""
-                UPDATE reportes 
-                SET gps = %s 
-                WHERE TRIM(cedula_vecino::text) = %s AND tipo_alerta = 'Ruta Segura' AND estado = 'En transcurso';
-            """, (f"{lat},{lng}", cedula))
-            conn.commit()
-            cur.close()
-        except Exception as e:
-            print(f"Error actualizando trayecto: {e}")
-        finally:
-            if conn:
-                conn.close()
-
-    return jsonify({'status': 'ok'}), 200
-
-@app.route('/api/v1/trayecto/finalizar', methods=['POST'])
-def finalizar_trayecto():
-    data = request.get_json() or {}
-    cedula = str(data.get('cedula', '')).strip()
 
     conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
+
         cur.execute("""
             UPDATE reportes 
-            SET estado = 'Atendido' 
+            SET gps = %s 
             WHERE TRIM(cedula_vecino::text) = %s AND tipo_alerta = 'Ruta Segura' AND estado = 'En transcurso';
-        """, (cedula,))
+        """, (f"{lat},{lng}", cedula))
+
+        if alerta_id:
+            cur.execute("""
+                INSERT INTO puntos_trayecto (alerta_id, cedula, latitud, longitud)
+                VALUES (%s, %s, %s, %s);
+            """, (alerta_id, cedula, float(lat), float(lng)))
+
+        conn.commit()
+        cur.close()
+    except Exception as e:
+        print(f"Error actualizando trayecto: {e}")
+    finally:
+        if conn:
+            conn.close()
+
+    return jsonify({'status': 'ok'}), 200
+
+@app.route('/api/v1/trayecto/<int:alerta_id>/puntos', methods=['GET'])
+def obtener_puntos_trayecto(alerta_id):
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT latitud, longitud 
+            FROM puntos_trayecto 
+            WHERE alerta_id = %s 
+            ORDER BY id ASC;
+        """, (alerta_id,))
+        filas = cur.fetchall()
+        cur.close()
+
+        puntos = [[float(f['latitud']), float(f['longitud'])] for f in filas]
+        return jsonify(puntos), 200
+    except Exception as e:
+        return jsonify([]), 500
+    finally:
+        if conn:
+            conn.close()
+
+@app.route('/api/v1/trayecto/finalizar', methods=['POST'])
+def finalizar_trayecto():
+    data = request.get_json() or {}
+    cedula = str(data.get('cedula', '')).strip()
+    alerta_id = data.get('alerta_id')
+
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        if alerta_id:
+            cur.execute("UPDATE reportes SET estado = 'Atendido' WHERE id = %s;", (alerta_id,))
+        else:
+            cur.execute("""
+                UPDATE reportes 
+                SET estado = 'Atendido' 
+                WHERE TRIM(cedula_vecino::text) = %s AND tipo_alerta = 'Ruta Segura' AND estado = 'En transcurso';
+            """, (cedula,))
         
         conn.commit()
         cur.close()
