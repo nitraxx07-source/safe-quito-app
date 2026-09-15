@@ -472,7 +472,7 @@
         if (alertaId) {
             actualizarTrayectoEnVivoDesdeServidor(alertaId);
             if (intervalConsultaPuntos) clearInterval(intervalConsultaPuntos);
-            intervalConsultaPuntos = setInterval(() => actualizarTrayectoEnVivoDesdeServidor(alertaId), 5000);
+            intervalConsultaPuntos = setInterval(() => actualizarTrayectoEnVivoDesdeServidor(alertaId), 4000);
         }
     }
 
@@ -487,6 +487,11 @@
                     } else if (miMapa) {
                         lineaTrayecto = L.polyline(puntos, { color: '#27ae60', weight: 6, opacity: 0.85 }).addTo(miMapa);
                     }
+                    // Si el usuario que observa no tiene el marcador actualizado, colocarlo en el último punto
+                    const ultimoPunto = puntos[puntos.length - 1];
+                    if (ultimoPunto && miMarcador) {
+                        miMarcador.setLatLng(ultimoPunto);
+                    }
                 }
             }
         } catch(e) {}
@@ -497,6 +502,7 @@
         if (marcadorSalidaTemp) { miMapa.removeLayer(marcadorSalidaTemp); marcadorSalidaTemp = null; }
         if (marcadorDestinoTemp) { miMapa.removeLayer(marcadorDestinoTemp); marcadorDestinoTemp = null; }
         if (lineaRutaPlaneada) { miMapa.removeLayer(lineaRutaPlaneada); lineaRutaPlaneada = null; }
+        if (lineaTrayecto) { miMapa.removeLayer(lineaTrayecto); lineaTrayecto = null; }
         if (intervalConsultaPuntos) { clearInterval(intervalConsultaPuntos); intervalConsultaPuntos = null; }
     }
 
