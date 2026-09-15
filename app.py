@@ -84,7 +84,7 @@ def login():
         if usuario and bcrypt.check_password_hash(usuario['password'], password):
             return jsonify({
                 "status": "ok", 
-                "nombre": usuario['nombres'],
+                "nombre": f"{usuario['nombres']} {usuario['apellidos']}".strip(),
                 "barrio": usuario['barrio'],
                 "rol": usuario.get('rol', 'vecino')
             }), 200
@@ -187,7 +187,6 @@ def reportar():
 # 4. ELIMINAR USUARIO
 @app.route('/api/v1/usuarios/<cedula_objetivo>', methods=['DELETE'])
 def eliminar_usuario(cedula_objetivo):
-    # Soporta tanto cabecera X-Admin-Cedula como X-Usuario-Cedula para mayor flexibilidad
     admin_cedula = str(request.headers.get('X-Admin-Cedula') or request.headers.get('X-Usuario-Cedula', '')).strip()
 
     try:
@@ -223,7 +222,7 @@ def obtener_reportes():
                 r.estado,
                 r.gps,
                 COALESCE(r.barrio, u.barrio) AS barrio,
-                COALESCE(u.nombres || ' ' || u.apellidos, r.nombre_completo, 'Vecino') AS nombre_completo,
+                COALESCE(NULLIF(r.nombre_completo, ''), u.nombres || ' ' || u.apellidos, 'Vecino') AS nombre_completo,
                 TRIM(r.cedula_vecino::text) AS cedula_vecino,
                 TRIM(r.cedula_vecino::text) AS cedula,
                 COALESCE(
@@ -295,8 +294,8 @@ def suscribir():
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
 
-# 8. RUTAS PARA RUTA SEGURA
-trayectos_activos = {}  # Memoria temporal ultraligera para trayectos
+# 8. RUTAS PARA RUTA SEGURA / TRAYECTOS ACTIVOS
+trayectos_activos = {}
 
 @app.route('/api/v1/trayecto/iniciar', methods=['POST'])
 def iniciar_trayecto():
@@ -325,8 +324,8 @@ def finalizar_trayecto():
     trayectos_activos.pop(cedula, None)
     return jsonify({'status': 'ok'})
 
-# 9. RUTAS PARA EL CHAT DE TEXTO POR ALERTA
-chats_alertas = {}  # Estructura temporal: { alerta_id: [ {'remitente': 'Vecino', 'texto': '...'} ] }
+# 9. RUTAS PARA EL CHAT DE TEXTO POR ALERTA CON ROL Y NOMBRE REAL
+chats_alertas = {}
 
 @app.route('/api/v1/alerta/<alerta_id>/chat', methods=['GET'])
 def obtener_chat(alerta_id):
@@ -338,15 +337,33 @@ def enviar_mensaje_chat(alerta_id):
     data = request.get_json()
     cedula = data.get('cedula')
     texto = data.get('texto')
-    
+    nombre_usuario = data.get('nombre')
+    rol_usuario = data.get('rol')
+
     alerta_id_str = str(alerta_id)
     if alerta_id_str not in chats_alertas:
         chats_alertas[alerta_id_str] = []
-    
-    remitente_formateado = f"Vecino ({cedula[-4:]})" if cedula and len(cedula) >= 4 else "Vecino"
+
+    if not nombre_usuario or not rol_usuario:
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute("SELECT nombres, apellidos, rol FROM usuarios WHERE TRIM(cedula::text) = %s;", (str(cedula).strip(),))
+            u = cur.fetchone()
+            if u:
+                nombre_usuario = f"{u['nombres']} {u['apellidos']}".strip()
+                rol_usuario = u['rol']
+            cur.close()
+            conn.close()
+        except:
+            pass
+
+    remitente_final = nombre_usuario if nombre_usuario else (f"Vecino ({cedula[-4:]})" if cedula and len(cedula) >= 4 else "Vecino")
+    rol_final = rol_usuario if rol_usuario else "vecino"
     
     chats_alertas[alerta_id_str].append({
-        'remitente': remitente_formateado,
+        'remitente': remitente_final,
+        'rol': rol_final,
         'texto': texto
     })
     return jsonify({'status': 'ok'})
