@@ -441,6 +441,8 @@
         document.getElementById('mapa-trayecto').style.display = 'block';
         if (!miMapa) {
             inicializarMapaLeaflet();
+        } else {
+            setTimeout(() => { miMapa.invalidateSize(); }, 200);
         }
 
         limpiarCapasAuxiliares();
@@ -597,12 +599,17 @@
     }
 
     function inicializarMapaLeaflet() {
-        if (miMapa) return;
+        if (miMapa) {
+            setTimeout(() => { miMapa.invalidateSize(); }, 200);
+            return;
+        }
         miMapa = L.map('mapa-trayecto').setView([-0.1807, -78.4678], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '© OpenStreetMap'
         }).addTo(miMapa);
+
+        setTimeout(() => { miMapa.invalidateSize(); }, 200);
 
         miMapa.on('click', function(e) {
             if (!seleccionandoPunto) return;
@@ -762,11 +769,26 @@
     function retomarMonitoreoCaminata() {
         if (miRol !== 'vecino' && miRol !== 'dirigente') return;
 
-        const salidaGuardada = localStorage.getItem('safe_caminata_salida') || "";
-        const destinoGuardado = localStorage.getItem('safe_caminata_destino') || "";
+        const salidaGuardada = localStorage.getItem('safe_caminata_salida');
+        const destinoGuardado = localStorage.getItem('safe_caminata_destino');
+
+        if (!salidaGuardada || !destinoGuardado) return;
 
         document.getElementById('mapa-trayecto').style.display = 'block';
         inicializarMapaLeaflet();
+
+        if (salidaGuardada.includes(',') && destinoGuardado.includes(',')) {
+            const orig = salidaGuardada.split(',').map(Number);
+            const dest = destinoGuardado.split(',').map(Number);
+            
+            if (!isNaN(orig[0]) && !isNaN(dest[0])) {
+                limpiarCapasAuxiliares();
+                marcadorSalidaTemp = L.marker(orig).addTo(miMapa).bindPopup("📍 Inicio");
+                marcadorDestinoTemp = L.marker(dest).addTo(miMapa).bindPopup("🏁 Destino");
+                trazarRutaVial(orig, dest);
+            }
+        }
+
         iniciarWatchGPS(salidaGuardada, destinoGuardado);
         
         const idActual = localStorage.getItem('safe_caminata_id');
@@ -786,6 +808,7 @@
             const orig = origenStr.split(',').map(Number);
             const dest = destinoStr.split(',').map(Number);
             if (!isNaN(orig[0]) && !isNaN(dest[0])) {
+                limpiarCapasAuxiliares();
                 marcadorSalidaTemp = L.marker(orig).addTo(miMapa).bindPopup("📍 Inicio");
                 marcadorDestinoTemp = L.marker(dest).addTo(miMapa).bindPopup("🏁 Destino");
                 trazarRutaVial(orig, dest);
