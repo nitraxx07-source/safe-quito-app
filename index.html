@@ -56,13 +56,13 @@
         .btn-accidente { background: #3498db; border-bottom: 5px solid #2980b9; }
 
         .panel-gestion { margin-top: 25px; text-align: left; background: var(--gris-suave); padding: 15px; border-radius: 20px; border: 1px solid #ddd; }
-        .card-reporte { background: white; padding: 12px; border-radius: 12px; margin-bottom: 10px; border-left: 6px solid var(--azul-oscuro); font-size: 13px; position: relative; box-shadow: 0 2px 5px rgba(0,0,0,0.08); }
+        .card-reporte { background: white; padding: 12px; border-radius: 12px; margin-bottom: 10px; border-left: 6px solid var(--azul-oscuro); font-size: 13px; position: relative; box-shadow: 0 2px 5px rgba(0,0,0,0.08); cursor: pointer; transition: background 0.2s; }
+        .card-reporte:hover { background: #fdfdfd; }
         
         button.principal { width: 100%; padding: 16px; background: var(--azul-oscuro); color: white; border: none; border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer; margin-top: 10px; display: flex; align-items: center; justify-content: center; }
         .btn-accion { padding: 8px; border-radius: 6px; border: none; color: white; font-size: 11px; cursor: pointer; font-weight: bold; flex: 1; }
         .btn-whatsapp { width: 100%; background: var(--verde-whatsapp); color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; font-size: 12px; cursor: pointer; margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 6px; }
         
-        /* Estilos Leaflet y Chat */
         #mapa-trayecto { width: 100%; height: 250px; border-radius: 12px; margin-top: 10px; display: none; }
         .chat-box { background: #fafafa; border: 1px solid #ddd; border-radius: 10px; padding: 10px; max-height: 150px; overflow-y: auto; margin-top: 10px; text-align: left; font-size: 12px; }
         .chat-mensaje { margin-bottom: 6px; border-bottom: 1px solid #eee; padding-bottom: 4px; }
@@ -113,12 +113,10 @@
     <div id="seccion-app" class="oculto">
         <h3 id="bienvenida"></h3>
 
-        <!-- Botón para iniciar Modo Escolta / Ruta Segura -->
         <div id="contenedor-ruta-segura" style="margin-top: 15px;">
             <button class="principal" style="background: #27ae60;" onclick="abrirConfigRuta()">🚶‍♂️ Activar Ruta Segura (Modo Escolta)</button>
         </div>
 
-        <!-- Panel de configuración de Ruta y Destino -->
         <div id="panel-config-ruta" class="panel-gestion oculto">
             <h4>📍 Configurar Trayecto</h4>
             
@@ -134,7 +132,6 @@
                 <button type="button" style="background: #e67e22; color: white; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer;" onclick="activarSeleccion('destino')">🗺️ Mapa</button>
             </div>
 
-            <!-- Mensaje guía cuando se está seleccionando en el mapa -->
             <div id="aviso-seleccion-mapa" style="background: #f1c40f; color: #2c3e50; padding: 8px; border-radius: 8px; font-size: 13px; text-align: center; margin-bottom: 10px; display: none;">
                 <b>⚠️ Haz clic en el mapa</b> para fijar el punto.
             </div>
@@ -153,10 +150,8 @@
             <button class="btn-logout" style="margin-top: 5px; padding: 8px;" onclick="cerrarConfigRuta()">Cancelar</button>
         </div>
 
-        <!-- Mini Mapa Activo / Selección -->
         <div id="mapa-trayecto"></div>
 
-        <!-- Botones para emitir alertas -->
         <div id="contenedor-botones" class="grid-botones oculto">
             <button class="btn-alerta btn-auxilio" onclick="enviarAlerta('AUXILIO')">🚨 AUXILIO</button>
             <button class="btn-alerta btn-robo" onclick="enviarAlerta('ROBO')">🔫 ROBO</button>
@@ -165,16 +160,14 @@
             <button class="btn-alerta btn-accidente" onclick="enviarAlerta('ACCIDENTE')">🚑 ACCIDENTE</button>
         </div>
 
-        <!-- Panel de Alertas Activas en el Barrio -->
         <div id="panel-gestion" class="panel-gestion oculto">
             <h4 style="display:flex; justify-content:space-between; margin:0 0 10px 0;">
-                <span id="titulo-panel">📋 Alertas Activas en el Barrio</span>
+                <span id="titulo-panel">📋 Alertas y Caminatas Activas</span>
                 <span id="contador" style="background:red; color:white; padding:2px 8px; border-radius:10px; font-size:12px;">0</span>
             </h4>
             <div id="lista-reportes">Cargando...</div>
         </div>
 
-        <!-- Panel exclusivo para Administrador -->
         <div id="panel-admin" class="panel-gestion oculto" style="background: #fff5f5;">
             <h4 style="color:red">⚙️ Consola Admin</h4>
             <input type="text" id="input-borrar" placeholder="Cédula a eliminar">
@@ -210,12 +203,19 @@
     const API_URL = "https://servidor-safe-quito.onrender.com/api/v1";
     let miCedula = "";
     let miRol = "";
+    let miNombre = "";
 
     window.onload = function() {
         miCedula = localStorage.getItem('safe_cedula');
-        const n = localStorage.getItem('safe_nombre');
+        miNombre = localStorage.getItem('safe_nombre');
         miRol = localStorage.getItem('safe_rol');
-        if (miCedula && n) { lanzarApp(n, miRol); }
+        if (miCedula && miNombre) { 
+            lanzarApp(miNombre, miRol); 
+            const caminataActiva = localStorage.getItem('safe_caminata_activa');
+            if (caminataActiva === 'true') {
+                retomarMonitoreoCaminata();
+            }
+        }
     };
 
     function abrirModal() { document.getElementById('modal-legal').style.display = 'flex'; }
@@ -247,6 +247,7 @@
             if (data.status === "ok") {
                 miCedula = cedula;
                 miRol = data.rol;
+                miNombre = data.nombre;
                 localStorage.setItem('safe_cedula', cedula);
                 localStorage.setItem('safe_nombre', data.nombre);
                 localStorage.setItem('safe_rol', data.rol);
@@ -265,7 +266,7 @@
         document.getElementById('seccion-login').classList.add('oculto');
         document.getElementById('seccion-registro').classList.add('oculto');
         document.getElementById('seccion-app').classList.remove('oculto');
-        document.getElementById('bienvenida').innerText = `Hola, ${nombre}`;
+        document.getElementById('bienvenida').innerText = `Hola, ${nombre} (${rol.toUpperCase()})`;
 
         document.getElementById('panel-gestion').classList.remove('oculto');
 
@@ -295,12 +296,12 @@
             let reportes = await res.json();
             if (!Array.isArray(reportes)) reportes = [];
 
-            const reportesActivos = reportes.filter(r => r.estado === 'Pendiente' || r.estado === 'En transcurso');
+            const reportesActivos = reportes.filter(r => r.estado === 'Pendiente' || r.estado === 'En transcurso' || r.tipo_alerta === 'CAMINATA_SEGURA');
 
             document.getElementById('contador').innerText = reportesActivos.length;
 
             if (reportesActivos.length === 0) {
-                document.getElementById('lista-reportes').innerHTML = "<p style='font-size:12px;color:gray;text-align:center;'>Sin alertas activas en el barrio.</p>";
+                document.getElementById('lista-reportes').innerHTML = "<p style='font-size:12px;color:gray;text-align:center;'>Sin alertas o caminatas activas en el barrio.</p>";
                 return;
             }
 
@@ -314,8 +315,9 @@
                 const mapaLink = `https://www.google.com/maps?q=${coordsReal}`;
                 
                 const esEnCurso = r.estado === 'En transcurso';
-                const textoBadge = esEnCurso ? 'EN CURSO' : 'PENDIENTE';
-                const colorBadge = esEnCurso ? '#2980b9' : '#e74c3c';
+                const esCaminata = r.tipo_alerta === 'CAMINATA_SEGURA';
+                const textoBadge = esCaminata ? 'CAMINATA' : (esEnCurso ? 'EN CURSO' : 'PENDIENTE');
+                const colorBadge = esCaminata ? '#8e44ad' : (esEnCurso ? '#2980b9' : '#e74c3c');
 
                 const mensajeWS = encodeURIComponent(
                     `🚨 *ALERTA BARRIAL: ${r.tipo_alerta}* 🚨\n\n` +
@@ -329,7 +331,7 @@
                 const urlCompartirWS = `https://api.whatsapp.com/send?text=${mensajeWS}`;
 
                 html += `
-                <div class="card-reporte" style="border-left: 6px solid ${colorBadge}; position:relative; background:white; padding:12px; border-radius:10px; margin-bottom:10px; box-shadow:0 2px 5px rgba(0,0,0,0.08);">
+                <div class="card-reporte" style="border-left: 6px solid ${colorBadge};" onclick="enfocarAlertaEnMapa('${coordsReal}', '${r.tipo_alerta}', '${nombreCompleto}')">
                     <span style="background:${colorBadge}; color:white; padding:2px 8px; border-radius:6px; font-size:10px; font-weight:bold; position:absolute; right:10px; top:10px;">
                         ${textoBadge}
                     </span>
@@ -339,19 +341,18 @@
                     <div style="font-size: 12px; line-height: 1.6; color: #333; text-align:left;">
                         <b>👤 Emitida por:</b> ${nombreCompleto} <br>
                         <b>🪪 Cédula:</b> ${cedulaVecino} <br>
-                        <b>📞 Teléfono:</b> <a href="tel:${celularVecino}" style="color:#27ae60; font-weight:bold;">${celularVecino}</a> <br>
+                        <b>📞 Teléfono:</b> <a href="tel:${celularVecino}" style="color:#27ae60; font-weight:bold;" onclick="event.stopPropagation()">${celularVecino}</a> <br>
                         <b>🏠 Dirección:</b> ${direccionVecino} <br>
-                        <b>📍 Ubicación GPS:</b> <a href="${mapaLink}" target="_blank" style="color:#d35400; font-weight:bold;">Ver en Mapa 🗺️</a>
+                        <b>📍 Ubicación GPS:</b> <a href="${mapaLink}" target="_blank" style="color:#d35400; font-weight:bold;" onclick="event.stopPropagation()">Ver en Mapa 🗺️</a>
                     </div>
 
-                    <a href="${urlCompartirWS}" target="_blank" style="text-decoration:none;">
+                    <a href="${urlCompartirWS}" target="_blank" style="text-decoration:none;" onclick="event.stopPropagation()">
                         <button class="btn-whatsapp">
                             💬 Compartir en Grupo / WhatsApp
                         </button>
                     </a>
 
-                    <!-- Sección de Chat Integrada -->
-                    <div style="margin-top:10px;">
+                    <div style="margin-top:10px;" onclick="event.stopPropagation()">
                         <div id="mensajes-${r.id}" class="chat-box"><i style="color:gray;">Cargando chat...</i></div>
                         <div style="display:flex; gap:5px; margin-top:5px;">
                             <input type="text" id="input-chat-${r.id}" placeholder="Escribe un mensaje..." style="margin:0; padding:8px; font-size:12px;">
@@ -359,20 +360,19 @@
                         </div>
                     </div>
 
-                    ${miRol !== 'vecino' ? `
-                        <div style="display:flex; gap:10px; margin-top: 8px;">
-                            ${!esEnCurso ? `
+                    ${miRol !== 'vecino' || cedulaVecino === miCedula ? `
+                        <div style="display:flex; gap:10px; margin-top: 8px;" onclick="event.stopPropagation()">
+                            ${!esEnCurso && !esCaminata ? `
                                 <button class="btn-accion" style="background:#2980b9;" onclick="cambiarEstado(${r.id}, 'En transcurso')">
                                     TOMAR ALERTA
                                 </button>` : ''}
                             <button class="btn-accion" style="background:#27ae60;" onclick="cambiarEstado(${r.id}, 'Atendido')">
-                                FINALIZAR
+                                FINALIZAR / LLEGUÉ BIEN
                             </button>
                         </div>
                     ` : ''}
                 </div>`;
                 
-                // Cargar chat para cada reporte activo
                 setTimeout(() => cargarChat(r.id), 200);
             });
 
@@ -383,6 +383,24 @@
         }
     }
 
+    function enfocarAlertaEnMapa(coords, tipo, emisor) {
+        if (!coords || !coords.includes(',')) return;
+        const partes = coords.split(',');
+        const lat = parseFloat(partes[0]);
+        const lng = parseFloat(partes[1]);
+        if (isNaN(lat) || isNaN(lng)) return;
+
+        document.getElementById('mapa-trayecto').style.display = 'block';
+        if (!miMapa) {
+            inicializarMapaLeaflet();
+        }
+        miMapa.setView([lat, lng], 17);
+        L.popup()
+            .setLatLng([lat, lng])
+            .setContent(`<b>${tipo}</b><br>Emisor: ${emisor}`)
+            .openOn(miMapa);
+    }
+
     async function cambiarEstado(id, nuevo) {
         try {
             const res = await fetch(`${API_URL}/reportes/${id}`, {
@@ -390,7 +408,12 @@
                 headers: {'Content-Type': 'application/json', 'X-Usuario-Cedula': miCedula},
                 body: JSON.stringify({estado: nuevo})
             });
-            if(res.ok) cargarReportes();
+            if(res.ok) {
+                if (miCedula) {
+                    localStorage.removeItem('safe_caminata_activa');
+                }
+                cargarReportes();
+            }
         } catch(e) { alert("Error al actualizar"); }
     }
 
@@ -449,55 +472,57 @@
         }, () => alert("📍 Activa el GPS."), {enableHighAccuracy: true});
     }
 
-    // FUNCIONES PARA MODO RUTA SEGURA / ESCOLTA Y LEAFLET
     let watchID = null;
     let miMapa = null;
     let miMarcador = null;
     let marcadorSalidaTemp = null;
     let marcadorDestinoTemp = null;
     let lineaTrayecto = null;
-    let seleccionandoPunto = null; // 'salida' o 'destino'
+    let seleccionandoPunto = null;
+    let puntosCoordenadas = [];
+
+    function inicializarMapaLeaflet() {
+        if (miMapa) return;
+        miMapa = L.map('mapa-trayecto').setView([-0.1807, -78.4678], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(miMapa);
+
+        miMapa.on('click', function(e) {
+            if (!seleccionandoPunto) return;
+
+            const lat = e.latlng.lat;
+            const lng = e.latlng.lng;
+            const coordenadaTexto = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+
+            if (seleccionandoPunto === 'salida') {
+                document.getElementById('input-salida').value = coordenadaTexto;
+                if (marcadorSalidaTemp) miMapa.removeLayer(marcadorSalidaTemp);
+                marcadorSalidaTemp = L.marker([lat, lng]).addTo(miMapa)
+                    .bindPopup("📍 Punto de Salida").openPopup();
+                alert("✅ Punto de salida seleccionado en el mapa.");
+            } else if (seleccionandoPunto === 'destino') {
+                document.getElementById('input-destino').value = coordenadaTexto;
+                if (marcadorDestinoTemp) miMapa.removeLayer(marcadorDestinoTemp);
+                marcadorDestinoTemp = L.marker([lat, lng], {icon: L.icon({
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                    iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+                })}).addTo(miMapa).bindPopup("🏁 Punto de Llegada").openPopup();
+                alert("✅ Punto de llegada seleccionado en el mapa.");
+            }
+
+            seleccionandoPunto = null;
+            document.getElementById('aviso-seleccion-mapa').style.display = 'none';
+        });
+    }
 
     function abrirConfigRuta() {
         document.getElementById('panel-config-ruta').classList.remove('oculto');
         document.getElementById('mapa-trayecto').style.display = 'block';
         actualizarSelectRutasGuardadas();
-
-        if (!miMapa) {
-            miMapa = L.map('mapa-trayecto').setView([-0.1807, -78.4678], 15);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 19,
-                attribution: '© OpenStreetMap'
-            }).addTo(miMapa);
-
-            miMapa.on('click', function(e) {
-                if (!seleccionandoPunto) return;
-
-                const lat = e.latlng.lat;
-                const lng = e.latlng.lng;
-                const coordenadaTexto = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-
-                if (seleccionandoPunto === 'salida') {
-                    document.getElementById('input-salida').value = coordenadaTexto;
-                    if (marcadorSalidaTemp) miMapa.removeLayer(marcadorSalidaTemp);
-                    marcadorSalidaTemp = L.marker([lat, lng]).addTo(miMapa)
-                        .bindPopup("📍 Punto de Salida").openPopup();
-                    alert("✅ Punto de salida seleccionado en el mapa.");
-                } else if (seleccionandoPunto === 'destino') {
-                    document.getElementById('input-destino').value = coordenadaTexto;
-                    if (marcadorDestinoTemp) miMapa.removeLayer(marcadorDestinoTemp);
-                    marcadorDestinoTemp = L.marker([lat, lng], {icon: L.icon({
-                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
-                        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-                        iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
-                    })}).addTo(miMapa).bindPopup("🏁 Punto de Llegada").openPopup();
-                    alert("✅ Punto de llegada seleccionado en el mapa.");
-                }
-
-                seleccionandoPunto = null;
-                document.getElementById('aviso-seleccion-mapa').style.display = 'none';
-            });
-        }
+        inicializarMapaLeaflet();
     }
 
     function cerrarConfigRuta() {
@@ -578,33 +603,61 @@
 
         cerrarConfigRuta();
         document.getElementById('mapa-trayecto').style.display = 'block';
+        inicializarMapaLeaflet();
 
-        try {
-            await fetch(`${API_URL}/trayecto/iniciar`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ cedula: miCedula, salida: salida, destino: destino })
-            });
-        } catch(e) { console.error("Error al iniciar trayecto en backend"); }
+        navigator.geolocation.getCurrentPosition(async (pos) => {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            const gpsStr = `${lat},${lng}`;
 
-        let puntosCoordenadas = [];
+            try {
+                const res = await fetch(`${API_URL}/reportar`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        cedula: miCedula, 
+                        tipo: 'CAMINATA_SEGURA', 
+                        gps: gpsStr
+                    })
+                });
+                if (res.ok) {
+                    localStorage.setItem('safe_caminata_activa', 'true');
+                    iniciarWatchGPS(destino);
+                }
+            } catch(e) {
+                alert("Error al iniciar caminata en servidor.");
+            }
+        }, () => alert("GPS requerido."), {enableHighAccuracy: true});
+    }
+
+    function retomarMonitoreoCaminata() {
+        document.getElementById('mapa-trayecto').style.display = 'block';
+        inicializarMapaLeaflet();
+        iniciarWatchGPS("Destino en curso");
+        document.getElementById('contenedor-ruta-segura').innerHTML = `
+            <button class="principal" style="background: #c0392b;" onclick="finalizarRutaSegura()">✅ Ya llegué bien (Finalizar)</button>
+        `;
+    }
+
+    function iniciarWatchGPS(destinoStr) {
+        puntosCoordenadas = [];
+        if (watchID !== null) navigator.geolocation.clearWatch(watchID);
 
         watchID = navigator.geolocation.watchPosition(async (pos) => {
             const lat = pos.coords.latitude;
             const lng = pos.coords.longitude;
 
             puntosCoordenadas.push([lat, lng]);
-            const miNombre = localStorage.getItem('safe_nombre') || "Vecino";
 
             if (!miMarcador) {
-                miMarcador = L.marker([lat, lng]).addTo(miMapa).bindPopup(`<b>${miNombre}</b><br>Hacia: ${destino}`).openPopup();
+                miMarcador = L.marker([lat, lng]).addTo(miMapa).bindPopup(`<b>${miNombre}</b><br>Ruta Segura`).openPopup();
             } else {
                 miMarcador.setLatLng([lat, lng]);
             }
             miMapa.setView([lat, lng], 16);
 
             if (!lineaTrayecto) {
-                lineaTrayecto = L.polyline(puntosCoordenadas, { color: '#8e44ad', weight: 5, opacity: 0.8 }).addTo(miMapa);
+                lineaTrayecto = L.polyline(puntosCoordenadas, { color: '#8e44ad', weight: 6, opacity: 0.85 }).addTo(miMapa);
             } else {
                 lineaTrayecto.setLatLngs(puntosCoordenadas);
             }
@@ -618,13 +671,13 @@
             } catch(e) {}
 
         }, (err) => {
-            alert("No se pudo obtener la señal GPS en tiempo real.");
+            console.error("Error GPS watch", err);
         }, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
 
         document.getElementById('contenedor-ruta-segura').innerHTML = `
             <button class="principal" style="background: #c0392b;" onclick="finalizarRutaSegura()">✅ Ya llegué bien (Finalizar)</button>
         `;
-        alert("🚀 Ruta segura activada. Tu caminata está siendo monitoreada.");
+        alert("🚀 Ruta segura activa en tiempo real.");
     }
 
     async function finalizarRutaSegura() {
@@ -632,6 +685,8 @@
             navigator.geolocation.clearWatch(watchID);
             watchID = null;
         }
+
+        localStorage.removeItem('safe_caminata_activa');
 
         try {
             await fetch(`${API_URL}/trayecto/finalizar`, {
@@ -652,17 +707,17 @@
         document.getElementById('contenedor-ruta-segura').innerHTML = `
             <button class="principal" style="background: #27ae60;" onclick="abrirConfigRuta()">🚶‍♂️ Activar Ruta Segura (Modo Escolta)</button>
         `;
+        cargarReportes();
         alert("🏠 ¡Qué bueno que llegaste con bien! Ruta finalizada.");
     }
 
-    // FUNCIONES PARA EL CHAT DE TEXTO LIGERO EN LAS ALERTAS
     async function cargarChat(alertaId) {
         try {
             const res = await fetch(`${API_URL}/alerta/${alertaId}/chat`);
             const mensajes = await res.json();
             let html = "";
             mensajes.forEach(m => {
-                html += `<div class="chat-mensaje"><b>${m.remitente}:</b> ${m.texto}</div>`;
+                html += `<div class="chat-mensaje"><b>${m.remitente} (${m.rol || 'vecino'}):</b> ${m.texto}</div>`;
             });
             const contenedorChat = document.getElementById(`mensajes-${alertaId}`);
             if (contenedorChat) {
@@ -680,7 +735,12 @@
             const res = await fetch(`${API_URL}/alerta/${alertaId}/chat`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ cedula: miCedula, texto: texto })
+                body: JSON.stringify({ 
+                    cedula: miCedula, 
+                    texto: texto,
+                    nombre: miNombre,
+                    rol: miRol
+                })
             });
             if (res.ok) {
                 input.value = "";
