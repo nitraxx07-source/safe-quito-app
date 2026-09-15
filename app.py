@@ -15,14 +15,13 @@ bcrypt = Bcrypt(app)
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 def get_db_connection():
-    conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
-    return conn
+    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
 VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY")
 VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY")
 VAPID_CLAIMS = {"sub": "mailto:NITRAXX07@GMAIL.COM"}
 
-# Memoria temporal para coordenadas en tiempo real de rutas seguras
+# Memoria temporal para coordenadas en tiempo real y chat
 trayectos_activos = {}
 chats_alertas = {}
 
@@ -31,13 +30,13 @@ def home():
     return "Servidor SafeQuito - Sistema Activo en Neon Postgres", 200
 
 def disparar_notificaciones_push(tipo, barrio):
+    conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("SELECT * FROM suscripciones;")
         subs = cur.fetchall()
         cur.close()
-        conn.close()
         
         payload = {
             "title": f"🚨 AUXILIO EN {str(barrio).upper()}",
@@ -58,32 +57,33 @@ def disparar_notificaciones_push(tipo, barrio):
                 )
             except WebPushException as ex:
                 if ex.response and ex.response.status_code == 410:
-                    conn = get_db_connection()
-                    cur = conn.cursor()
-                    cur.execute("DELETE FROM suscripciones WHERE endpoint = %s;", (s['endpoint'],))
+                    cur_del = conn.cursor()
+                    cur_del.execute("DELETE FROM suscripciones WHERE endpoint = %s;", (s['endpoint'],))
                     conn.commit()
-                    cur.close()
-                    conn.close()
+                    cur_del.close()
     except Exception as e:
         print(f"Error enviando push: {e}")
+    finally:
+        if conn:
+            conn.close()
 
 # 1. LOGIN
 @app.route('/api/v1/login', methods=['POST'])
 def login():
-    datos = request.json
+    datos = request.json or {}
     cedula = str(datos.get('cedula', '')).strip()
     password = datos.get('password')
 
     if not cedula or not password:
         return jsonify({"status": "error", "msj": "Faltan datos"}), 400
 
+    conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("SELECT * FROM usuarios WHERE TRIM(cedula::text) = %s;", (cedula,))
         usuario = cur.fetchone()
         cur.close()
-        conn.close()
 
         if usuario and bcrypt.check_password_hash(usuario['password'], password):
             return jsonify({
@@ -96,14 +96,18 @@ def login():
             return jsonify({"status": "error", "msj": "Cédula o clave incorrecta"}), 401
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
 
 # 2. REGISTRO
 @app.route('/api/v1/registrar', methods=['POST'])
 def registrar():
-    datos = request.json
+    datos = request.json or {}
     pw_raw = datos.get('password')
     pw_hash = bcrypt.generate_password_hash(pw_raw).decode('utf-8') if pw_raw else None
 
+    conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -118,19 +122,22 @@ def registrar():
         ))
         conn.commit()
         cur.close()
-        conn.close()
         return jsonify({"status": "ok", "msj": "Registro exitoso"}), 201
     except Exception as e:
         return jsonify({"status": "error", "msj": "Error al registrar"}), 500
+    finally:
+        if conn:
+            conn.close()
 
 # 3. REPORTAR ALERTA CON ENLACE DIRECTO A WHATSAPP
 @app.route('/api/v1/reportar', methods=['POST'])
 def reportar():
-    datos = request.json
+    datos = request.json or {}
     cedula = str(datos.get('cedula', '')).strip()
     tipo_alerta = datos.get('tipo')
     gps = datos.get('gps')
 
+    conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -139,20 +146,14 @@ def reportar():
         u = cur.fetchone() or {}
 
         nombre_completo = f"{u.get('nombres', '')} {u.get('apellidos', '')}".strip() or "Vecino"
-        
         calle_p = u.get('calle_principal', '')
         calle_s = u.get('calle_secundaria', '')
         num_c = u.get('numero_casa', '')
         celular = u.get('celular', 'Sin número')
         
-        if calle_p or calle_s:
-            dir_exacta = f"{calle_p} y {calle_s} - Casa: {num_c}"
-        else:
-            dir_exacta = "Dirección registrada según mapa"
-            
+        dir_exacta = f"{calle_p} y {calle_s} - Casa: {num_c}" if (calle_p or calle_s) else "Dirección registrada según mapa"
         barrio = u.get('barrio', 'Sin Barrio')
 
-        # Guardar en base de datos
         cur.execute("""
             INSERT INTO reportes (cedula_vecino, nombre_completo, tipo_alerta, gps, barrio, direccion_exacta, estado)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
@@ -164,12 +165,9 @@ def reportar():
 
         conn.commit()
         cur.close()
-        conn.close()
 
-        # Enviar notificación Push
         disparar_notificaciones_push(tipo_alerta, barrio)
 
-        # Mensaje estructurado para WhatsApp
         mapa_url = f"https://www.google.com/maps?q={gps}"
         mensaje_wa = (
             f"🚨 *ALERTA DE SEGURIDAD - SAFEQUITO* 🚨\n\n"
@@ -192,12 +190,16 @@ def reportar():
 
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
 
 # 4. ELIMINAR USUARIO
 @app.route('/api/v1/usuarios/<cedula_objetivo>', methods=['DELETE'])
 def eliminar_usuario(cedula_objetivo):
     admin_cedula = str(request.headers.get('X-Admin-Cedula') or request.headers.get('X-Usuario-Cedula', '')).strip()
 
+    conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -206,24 +208,25 @@ def eliminar_usuario(cedula_objetivo):
         
         if not check or check['rol'] != 'admin':
             cur.close()
-            conn.close()
             return jsonify({"status": "error", "msj": "No autorizado"}), 403
 
         cur.execute("DELETE FROM usuarios WHERE TRIM(cedula::text) = %s;", (str(cedula_objetivo).strip(),))
         conn.commit()
         cur.close()
-        conn.close()
         return jsonify({"status": "ok", "msj": "Usuario eliminado"}), 200
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
 
-# 5. OBTENER REPORTES (SOLO PENDIENTES O EN TRANSCURSO)
+# 5. OBTENER REPORTES
 @app.route('/api/v1/reportes', methods=['GET'])
 def obtener_reportes():
+    conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        
         cur.execute("""
             SELECT 
                 r.id,
@@ -249,45 +252,39 @@ def obtener_reportes():
         """)
         reportes = cur.fetchall()
         cur.close()
-        conn.close()
         return jsonify(reportes), 200
-
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
 
-# 6. ACTUALIZAR ESTADO (VECINO DUEÑO DE LA ALERTA, ADMIN, DIRIGENTE O POLICIA)
+# 6. ACTUALIZAR ESTADO
 @app.route('/api/v1/reportes/<int:id_reporte>', methods=['PUT'])
 def actualizar_estado(id_reporte):
     datos = request.json or {}
     nuevo_estado = datos.get('estado')
-    
-    # Se extrae la cédula recibida en los headers o en el body
-    user_cedula = str(
-        request.headers.get('X-Usuario-Cedula') or datos.get('cedula', '')
-    ).strip()
+    user_cedula = str(request.headers.get('X-Usuario-Cedula') or datos.get('cedula', '')).strip()
 
     if not nuevo_estado:
         return jsonify({"status": "error", "msj": "Estado no proporcionado"}), 400
 
+    conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
 
-        # Obtener datos de la alerta
         cur.execute("SELECT TRIM(cedula_vecino::text) AS cedula_vecino FROM reportes WHERE id = %s;", (id_reporte,))
         reporte = cur.fetchone()
 
         if not reporte:
             cur.close()
-            conn.close()
             return jsonify({"status": "error", "msj": "Alerta no encontrada"}), 404
 
-        # Obtener rol del usuario emisor de la petición
         cur.execute("SELECT rol FROM usuarios WHERE TRIM(cedula::text) = %s;", (user_cedula,))
         user_info = cur.fetchone()
         rol = user_info['rol'] if user_info else 'vecino'
 
-        # El vecino puede modificar su propia alerta si su cédula coincide
         es_dueno = (reporte['cedula_vecino'] == user_cedula)
         es_autorizado = rol in ['admin', 'dirigente', 'policia']
 
@@ -295,27 +292,28 @@ def actualizar_estado(id_reporte):
             cur.execute("UPDATE reportes SET estado = %s WHERE id = %s;", (nuevo_estado, id_reporte))
             conn.commit()
 
-            # Si existía en memoria dentro de trayectos activos, eliminarlo
             if reporte['cedula_vecino'] in trayectos_activos:
                 trayectos_activos.pop(reporte['cedula_vecino'], None)
 
             cur.close()
-            conn.close()
             return jsonify({"status": "ok", "msj": "Estado actualizado correctamente"}), 200
 
         cur.close()
-        conn.close()
         return jsonify({"status": "error", "msj": "No autorizado para modificar esta alerta"}), 403
-
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
 
 # 7. SUSCRIBIR NOTIFICACIONES PUSH
 @app.route('/api/v1/suscribir', methods=['POST'])
 def suscribir():
-    datos = request.json
+    datos = request.json or {}
     cedula = str(datos.get('cedula', '')).strip()
-    sub = datos.get('subscription')
+    sub = datos.get('subscription', {})
+    
+    conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -327,10 +325,12 @@ def suscribir():
         """, (cedula, sub['endpoint'], sub['keys']['p256dh'], sub['keys']['auth']))
         conn.commit()
         cur.close()
-        conn.close()
         return jsonify({"status": "ok"}), 201
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
 
 # 8. RUTAS PARA RUTA SEGURA / TRAYECTOS ACTIVOS
 @app.route('/api/v1/trayecto/iniciar', methods=['POST'])
@@ -341,6 +341,7 @@ def iniciar_trayecto():
     salida = data.get('salida', '')
     gps = data.get('gps', '0,0')
 
+    conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -350,7 +351,6 @@ def iniciar_trayecto():
         nombre_completo = f"{u.get('nombres', '')} {u.get('apellidos', '')}".strip() or "Vecino"
         barrio = u.get('barrio', 'Sin Barrio')
 
-        # Registrar el trayecto en la BD
         cur.execute("""
             INSERT INTO reportes (cedula_vecino, nombre_completo, tipo_alerta, gps, barrio, direccion_exacta, estado)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
@@ -360,7 +360,6 @@ def iniciar_trayecto():
         alerta_creada = cur.fetchone()
         conn.commit()
         cur.close()
-        conn.close()
 
         trayectos_activos[cedula] = {
             'id_reporte': alerta_creada['id'] if alerta_creada else None,
@@ -371,9 +370,11 @@ def iniciar_trayecto():
             'estado': 'en_camino'
         }
         return jsonify({'status': 'ok', 'id': alerta_creada['id'] if alerta_creada else None}), 200
-
     except Exception as e:
         return jsonify({'status': 'error', 'msj': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
 
 @app.route('/api/v1/trayecto/actualizar', methods=['POST'])
 def actualizar_trayecto():
@@ -386,6 +387,7 @@ def actualizar_trayecto():
         trayectos_activos[cedula]['lat'] = lat
         trayectos_activos[cedula]['lng'] = lng
         
+        conn = None
         try:
             conn = get_db_connection()
             cur = conn.cursor()
@@ -396,9 +398,11 @@ def actualizar_trayecto():
             """, (f"{lat},{lng}", cedula))
             conn.commit()
             cur.close()
-            conn.close()
-        except:
-            pass
+        except Exception as e:
+            print(f"Error actualizando trayecto: {e}")
+        finally:
+            if conn:
+                conn.close()
 
     return jsonify({'status': 'ok'}), 200
 
@@ -407,10 +411,10 @@ def finalizar_trayecto():
     data = request.get_json() or {}
     cedula = str(data.get('cedula', '')).strip()
 
+    conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-
         cur.execute("""
             UPDATE reportes 
             SET estado = 'Atendido' 
@@ -419,15 +423,16 @@ def finalizar_trayecto():
         
         conn.commit()
         cur.close()
-        conn.close()
 
         trayectos_activos.pop(cedula, None)
         return jsonify({'status': 'ok', 'msj': 'Trayecto finalizado'}), 200
-
     except Exception as e:
         return jsonify({'status': 'error', 'msj': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
 
-# 9. CHAT DE TEXTO POR ALERTA CON ROL Y NOMBRE REAL
+# 9. CHAT DE TEXTO POR ALERTA
 @app.route('/api/v1/alerta/<alerta_id>/chat', methods=['GET'])
 def obtener_chat(alerta_id):
     mensajes = chats_alertas.get(str(alerta_id), [])
@@ -446,6 +451,7 @@ def enviar_mensaje_chat(alerta_id):
         chats_alertas[alerta_id_str] = []
 
     if not nombre_usuario or not rol_usuario:
+        conn = None
         try:
             conn = get_db_connection()
             cur = conn.cursor()
@@ -455,11 +461,13 @@ def enviar_mensaje_chat(alerta_id):
                 nombre_usuario = f"{u['nombres']} {u['apellidos']}".strip()
                 rol_usuario = u['rol']
             cur.close()
-            conn.close()
-        except:
-            pass
+        except Exception as e:
+            print(f"Error recuperando usuario para chat: {e}")
+        finally:
+            if conn:
+                conn.close()
 
-    remitente_final = nombre_usuario if nombre_usuario else (f"Vecino ({cedula[-4:]})" if cedula and len(cedula) >= 4 else "Vecino")
+    remitente_final = nombre_usuario if nombre_usuario else (f"Vecino ({cedula[-4:]})" if len(cedula) >= 4 else "Vecino")
     rol_final = rol_usuario if rol_usuario else "vecino"
     
     chats_alertas[alerta_id_str].append({
