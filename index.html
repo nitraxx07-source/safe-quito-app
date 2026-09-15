@@ -584,160 +584,225 @@
     }
 
     function cargarRutaGuardada() {
-        const select = document.getElementById('select-rutas-guardadas');
-        const index = select.value;
+        const index = document.getElementById('select-rutas-guardadas').value;
         if (index === "") return;
 
         let rutasGuardadas = JSON.parse(localStorage.getItem('safe_rutas_frecuentes')) || [];
-        const ruta = rutasGuardadas[index];
-        if (ruta) {
-            document.getElementById('input-salida').value = ruta.salida;
-            document.getElementById('input-destino').value = ruta.destino;
+        const rutaSeleccionada = rutasGuardadas[index];
+
+        if (rutaSeleccionada) {
+            document.getElementById('input-salida').value = rutaSeleccionada.salida;
+            document.getElementById('input-destino').value = rutaSeleccionada.destino;
         }
     }
 
     async function iniciarRutaSegura() {
-        const salida = document.getElementById('input-salida').value.trim();
-        const destino = document.getElementById('input-destino').value.trim();
+        const salida = document.getElementById('input-salida').value;
+        const destino = document.getElementById('input-destino').value;
+        if (!salida || !destino) return alert("Por favor define tu punto de salida y tu destino.");
 
-        if (!salida || !destino) return alert("Por favor define salida y destino.");
+        cerrarConfigRuta();
+        document.getElementById('mapa-trayecto').style.display = 'block';
+        inicializarMapaLeaflet();
 
         navigator.geolocation.getCurrentPosition(async (pos) => {
-            const gpsActual = `${pos.coords.latitude},${pos.coords.longitude}`;
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            const gpsStr = `${lat},${lng}`;
+
             try {
                 const res = await fetch(`${API_URL}/reportar`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
-                        cedula: miCedula,
-                        tipo: 'CAMINATA_SEGURA',
-                        gps: gpsActual
+                        cedula: miCedula, 
+                        tipo: 'CAMINATA_SEGURA', 
+                        gps: gpsStr
                     })
                 });
-
                 if (res.ok) {
                     localStorage.setItem('safe_caminata_activa', 'true');
-                    cerrarConfigRuta();
-                    retomarMonitoreoCaminata();
-                    alert("🚀 Ruta segura iniciada. El barrio monitoreará tu trayecto.");
-                    cargarReportes();
-                } else {
-                    alert("Error al iniciar la caminata segura.");
+                    iniciarWatchGPS(destino);
                 }
-            } catch(e) { alert("Error de conexión."); }
-        }, () => alert("Se requiere GPS activado para iniciar la caminata."));
+            } catch(e) {
+                alert("Error al iniciar caminata en servidor.");
+            }
+        }, () => alert("GPS requerido."), {enableHighAccuracy: true});
     }
 
     function retomarMonitoreoCaminata() {
         document.getElementById('mapa-trayecto').style.display = 'block';
         inicializarMapaLeaflet();
-
-        if ("geolocation" in navigator) {
-            watchID = navigator.geolocation.watchPosition((pos) => {
-                const lat = pos.coords.latitude;
-                const lng = pos.coords.longitude;
-                const gpsString = `${lat},${lng}`;
-
-                puntosCoordenadas.push([lat, lng]);
-
-                if (!miMarcador) {
-                    miMarcador = L.marker([lat, lng]).addTo(miMapa).bindPopup("🚶‍♂️ Tu Ubicación").openPopup();
-                } else {
-                    miMarcador.setLatLng([lat, lng]);
-                }
-
-                if (lineaTrayecto) miMapa.removeLayer(lineaTrayecto);
-                lineaTrayecto = L.polyline(puntosCoordenadas, {color: '#27ae60', weight: 4}).addTo(miMapa);
-
-                miMapa.setView([lat, lng]);
-
-                fetch(`${API_URL}/reportar`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        cedula: miCedula,
-                        tipo: 'CAMINATA_SEGURA',
-                        gps: gpsString
-                    })
-                }).catch(e => console.error(e));
-
-            }, (err) => console.error(err), { enableHighAccuracy: true, maximumAge: 0 });
-        }
+        iniciarWatchGPS("Destino en curso");
+        document.getElementById('contenedor-ruta-segura').innerHTML = `
+            <button class="principal" style="background: #c0392b;" onclick="finalizarRutaSegura()">✅ Ya llegué bien (Finalizar)</button>
+        `;
     }
 
-    async function cargarChat(reporteId) {
-        try {
-            const res = await fetch(`${API_URL}/reportes/${reporteId}/chat`);
-            if (!res.ok) return;
-            const mensajes = await res.json();
-            const box = document.getElementById(`mensajes-${reporteId}`);
-            if (!box) return;
+    function iniciarWatchGPS(destinoStr) {
+        puntosCoordenadas = [];
+        if (watchID !== null) navigator.geolocation.clearWatch(watchID);
 
-            if (mensajes.length === 0) {
-                box.innerHTML = "<i style='color:gray;'>No hay mensajes aún.</i>";
-                return;
+        watchID = navigator.geolocation.watchPosition(async (pos) => {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+
+            puntosCoordenadas.push([lat, lng]);
+
+            if (!miMarcador) {
+                miMarcador = L.marker([lat, lng]).addTo(miMapa).bindPopup(`<b>${miNombre}</b><br>Ruta Segura`).openPopup();
+            } else {
+                miMarcador.setLatLng([lat, lng]);
+            }
+            miMapa.setView([lat, lng], 16);
+
+            if (!lineaTrayecto) {
+                lineaTrayecto = L.polyline(puntosCoordenadas, { color: '#8e44ad', weight: 6, opacity: 0.85 }).addTo(miMapa);
+            } else {
+                lineaTrayecto.setLatLngs(puntosCoordenadas);
             }
 
+            try {
+                await fetch(`${API_URL}/trayecto/actualizar`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ cedula: miCedula, lat: lat, lng: lng })
+                });
+            } catch(e) {}
+
+        }, (err) => {
+            console.error("Error GPS watch", err);
+        }, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
+
+        document.getElementById('contenedor-ruta-segura').innerHTML = `
+            <button class="principal" style="background: #c0392b;" onclick="finalizarRutaSegura()">✅ Ya llegué bien (Finalizar)</button>
+        `;
+        alert("🚀 Ruta segura activa en tiempo real.");
+    }
+
+    async function finalizarRutaSegura() {
+        if (watchID !== null) {
+            navigator.geolocation.clearWatch(watchID);
+            watchID = null;
+        }
+
+        localStorage.removeItem('safe_caminata_activa');
+
+        try {
+            await fetch(`${API_URL}/trayecto/finalizar`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ cedula: miCedula })
+            });
+        } catch(e) {}
+
+        if (lineaTrayecto && miMapa) {
+            miMapa.removeLayer(lineaTrayecto);
+            lineaTrayecto = null;
+        }
+        if (marcadorSalidaTemp) { miMapa.removeLayer(marcadorSalidaTemp); marcadorSalidaTemp = null; }
+        if (marcadorDestinoTemp) { miMapa.removeLayer(marcadorDestinoTemp); marcadorDestinoTemp = null; }
+
+        document.getElementById('mapa-trayecto').style.display = 'none';
+        document.getElementById('contenedor-ruta-segura').innerHTML = `
+            <button class="principal" style="background: #27ae60;" onclick="abrirConfigRuta()">🚶‍♂️ Activar Ruta Segura (Modo Escolta)</button>
+        `;
+        cargarReportes();
+        alert("🏠 ¡Qué bueno que llegaste con bien! Ruta finalizada.");
+    }
+
+    async function cargarChat(alertaId) {
+        try {
+            const res = await fetch(`${API_URL}/alerta/${alertaId}/chat`);
+            const mensajes = await res.json();
             let html = "";
             mensajes.forEach(m => {
-                html += `<div class="chat-mensaje"><b>${m.remitente || 'Vecino'}:</b> ${m.mensaje}</div>`;
+                html += `<div class="chat-mensaje"><b>${m.remitente} (${m.rol || 'vecino'}):</b> ${m.texto}</div>`;
             });
-            box.innerHTML = html;
-            box.scrollTop = box.scrollHeight;
+            const contenedorChat = document.getElementById(`mensajes-${alertaId}`);
+            if (contenedorChat) {
+                contenedorChat.innerHTML = html || "<i style='color:gray;'>Sin mensajes aún...</i>";
+            }
         } catch(e) {}
     }
 
-    async function enviarMensajeChat(reporteId) {
-        const input = document.getElementById(`input-chat-${reporteId}`);
-        const mensaje = input.value.trim();
-        if (!mensaje) return;
+    async function enviarMensajeChat(alertaId) {
+        const input = document.getElementById(`input-chat-${alertaId}`);
+        const texto = input.value.trim();
+        if (!texto) return;
 
         try {
-            const res = await fetch(`${API_URL}/reportes/${reporteId}/chat`, {
+            const res = await fetch(`${API_URL}/alerta/${alertaId}/chat`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    cedula: miCedula,
-                    mensaje: mensaje
+                body: JSON.stringify({ 
+                    cedula: miCedula, 
+                    texto: texto,
+                    nombre: miNombre,
+                    rol: miRol
                 })
             });
             if (res.ok) {
                 input.value = "";
-                cargarChat(reporteId);
+                cargarChat(alertaId);
             }
-        } catch(e) { alert("Error al enviar mensaje."); }
+        } catch(e) { alert("Error al enviar mensaje"); }
     }
 
-    async function eliminarUsuario() {
-        const cedulaABorrar = document.getElementById('input-borrar').value.trim();
-        if (!cedulaABorrar) return alert("Ingresa la cédula a eliminar.");
-        if (!confirm(`¿Eliminar al usuario con cédula ${cedulaABorrar}?`)) return;
-
-        try {
-            const res = await fetch(`${API_URL}/usuarios/${cedulaABorrar}`, {
-                method: 'DELETE',
-                headers: {'X-Usuario-Cedula': miCedula}
-            });
-            if (res.ok) {
-                alert("Usuario eliminado correctamente.");
-                document.getElementById('input-borrar').value = "";
-            } else {
-                alert("Error al eliminar usuario.");
-            }
-        } catch(e) { alert("Error de red."); }
-    }
-
-    function activarAlertasSeguridad() {
-        if (!("Notification" in window)) {
-            return alert("Este navegador no soporta notificaciones.");
-        }
-        Notification.requestPermission().then(permission => {
-            if (permission === "granted") {
-                alert("🔔 ¡Notificaciones activadas con éxito!");
-            } else {
-                alert("Permiso de notificaciones denegado.");
-            }
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js', { scope: './' })
+                .then(reg => console.log('SW registrado'))
+                .catch(err => console.error('Error SW', err));
         });
+    }
+
+    function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    }
+
+    async function activarAlertasSeguridad() {
+        try {
+            const cedulaTemp = miCedula || localStorage.getItem('safe_cedula');
+            if(!cedulaTemp) return alert("Inicia sesión primero.");
+
+            const permiso = await Notification.requestPermission();
+            if (permiso !== 'granted') return alert("Permiso denegado.");
+
+            const registro = await navigator.serviceWorker.ready;
+            const suscripcionExistente = await registro.pushManager.getSubscription();
+            if (suscripcionExistente) { await suscripcionExistente.unsubscribe(); }
+            
+            const publicVapidKey = 'BEuZiYU1P_PqZZIKlJLoIBET6Z1bbdPOuVrmuNuVK8pGC2_ZPZwg77uqYCR5IEcsqcXtGqBAQCM0ZZKcerKysPU';
+            const convertedVapidKey = urlBase64ToUint8Array(publicVapidKey);
+
+            const suscripcion = await registro.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: convertedVapidKey
+            });
+
+            const respuesta = await fetch(`${API_URL}/suscribir`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cedula: cedulaTemp, subscription: suscripcion })
+            });
+
+            if (respuesta.ok) {
+                alert("✅ Notificaciones activadas.");
+                document.getElementById('config-notificaciones').style.display = 'none';
+            } else {
+                alert("❌ Error en el servidor al guardar la suscripción.");
+            }
+        } catch (error) {
+            alert("Error: " + error.message);
+        }
     }
 </script>
 </body>
