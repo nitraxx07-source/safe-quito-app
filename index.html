@@ -453,16 +453,19 @@
                 body: JSON.stringify({estado: nuevo})
             });
             if(res.ok) {
-                cargarReportes();
+                await cargarReportes();
+            } else {
+                alert("No se pudo actualizar el estado de la alerta.");
             }
-        } catch(e) { alert("Error al actualizar"); }
+        } catch(e) { 
+            console.error("Error al actualizar estado:", e);
+            alert("Error de conexión al actualizar el estado."); 
+        }
     }
 
     async function finalizarAlertaEspecifica(id) {
         if (!confirm("¿Deseas finalizar este reporte o caminata?")) return;
         
-        await cambiarEstado(id, 'Atendido');
-
         if (watchID !== null) {
             navigator.geolocation.clearWatch(watchID);
             watchID = null;
@@ -477,25 +480,27 @@
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ cedula: miCedula })
             });
-        } catch(e) {}
+        } catch(e) {
+            console.error("Error al finalizar trayecto en backend", e);
+        }
 
         if (lineaTrayecto && miMapa) {
             miMapa.removeLayer(lineaTrayecto);
             lineaTrayecto = null;
         }
         limpiarCapasAuxiliares();
-
         document.getElementById('mapa-trayecto').style.display = 'none';
-        
+
         const elemRuta = document.getElementById('contenedor-ruta-segura');
-        if (elemRuta) {
+        if (elemRuta && (miRol === 'vecino' || miRol === 'dirigente')) {
             elemRuta.innerHTML = `
                 <button class="principal" style="background: #27ae60;" onclick="abrirConfigRuta()">🚶‍♂️ Activar Ruta Segura (Modo Escolta)</button>
             `;
         }
 
+        await cambiarEstado(id, 'Atendido');
+
         alert("✅ Reporte finalizado exitosamente.");
-        cargarReportes();
     }
 
     async function registrar() {
