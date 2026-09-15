@@ -422,17 +422,23 @@ def actualizar_trayecto():
         conn = get_db_connection()
         cur = conn.cursor()
 
-        cur.execute("""
-            UPDATE reportes 
-            SET gps = %s 
-            WHERE TRIM(cedula_vecino::text) = %s AND tipo_alerta = 'Ruta Segura' AND estado = 'En transcurso';
-        """, (f"{lat},{lng}", cedula))
-
         if alerta_id:
+            cur.execute("""
+                UPDATE reportes 
+                SET gps = %s 
+                WHERE id = %s;
+            """, (f"{lat},{lng}", alerta_id))
+
             cur.execute("""
                 INSERT INTO puntos_trayecto (alerta_id, cedula, latitud, longitud)
                 VALUES (%s, %s, %s, %s);
             """, (alerta_id, cedula, float(lat), float(lng)))
+        else:
+            cur.execute("""
+                UPDATE reportes 
+                SET gps = %s 
+                WHERE TRIM(cedula_vecino::text) = %s AND tipo_alerta = 'Ruta Segura' AND estado = 'En transcurso';
+            """, (f"{lat},{lng}", cedula))
 
         conn.commit()
         cur.close()
