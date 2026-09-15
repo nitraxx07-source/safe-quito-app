@@ -187,7 +187,8 @@ def reportar():
 # 4. ELIMINAR USUARIO
 @app.route('/api/v1/usuarios/<cedula_objetivo>', methods=['DELETE'])
 def eliminar_usuario(cedula_objetivo):
-    admin_cedula = str(request.headers.get('X-Admin-Cedula', '')).strip()
+    # Soporta tanto cabecera X-Admin-Cedula como X-Usuario-Cedula para mayor flexibilidad
+    admin_cedula = str(request.headers.get('X-Admin-Cedula') or request.headers.get('X-Usuario-Cedula', '')).strip()
 
     try:
         conn = get_db_connection()
@@ -268,9 +269,9 @@ def actualizar_estado(id_reporte):
         
         cur.close()
         conn.close()
-        return jsonify({"status": "error"}), 403
+        return jsonify({"status": "error", "msj": "No autorizado"}), 403
     except Exception as e:
-        return jsonify({"status": "error"}), 500
+        return jsonify({"status": "error", "msj": str(e)}), 500
 
 # 7. SUSCRIBIR NOTIFICACIONES PUSH
 @app.route('/api/v1/suscribir', methods=['POST'])
@@ -302,7 +303,8 @@ def iniciar_trayecto():
     data = request.get_json()
     cedula = data.get('cedula')
     destino = data.get('destino')
-    trayectos_activos[cedula] = {'destino': destino, 'lat': None, 'lng': None, 'estado': 'en_camino'}
+    salida = data.get('salida', '')
+    trayectos_activos[cedula] = {'salida': salida, 'destino': destino, 'lat': None, 'lng': None, 'estado': 'en_camino'}
     return jsonify({'status': 'ok'})
 
 @app.route('/api/v1/trayecto/actualizar', methods=['POST'])
