@@ -273,8 +273,16 @@
 
         document.getElementById('panel-gestion').classList.remove('oculto');
 
-        if (rol === 'vecino') {
+        // Visibilidad según roles comunitarios (vecino y dirigente)
+        const esUsuarioComunitario = (rol === 'vecino' || rol === 'dirigente');
+        const elemRuta = document.getElementById('contenedor-ruta-segura');
+
+        if (esUsuarioComunitario) {
             document.getElementById('contenedor-botones').classList.remove('oculto');
+            if (elemRuta) elemRuta.style.display = 'block';
+        } else {
+            // Se oculta la Ruta Segura para admin, policia, etc.
+            if (elemRuta) elemRuta.style.display = 'none';
         }
 
         if (rol === 'admin') {
@@ -478,9 +486,13 @@
         limpiarCapasAuxiliares();
 
         document.getElementById('mapa-trayecto').style.display = 'none';
-        document.getElementById('contenedor-ruta-segura').innerHTML = `
-            <button class="principal" style="background: #27ae60;" onclick="abrirConfigRuta()">🚶‍♂️ Activar Ruta Segura (Modo Escolta)</button>
-        `;
+        
+        const elemRuta = document.getElementById('contenedor-ruta-segura');
+        if (elemRuta) {
+            elemRuta.innerHTML = `
+                <button class="principal" style="background: #27ae60;" onclick="abrirConfigRuta()">🚶‍♂️ Activar Ruta Segura (Modo Escolta)</button>
+            `;
+        }
 
         alert("✅ Reporte finalizado exitosamente.");
         cargarReportes();
@@ -710,14 +722,19 @@
     }
 
     function retomarMonitoreoCaminata() {
+        if (miRol !== 'vecino' && miRol !== 'dirigente') return;
+
         document.getElementById('mapa-trayecto').style.display = 'block';
         inicializarMapaLeaflet();
         iniciarWatchGPS("", "");
         
         const idActual = localStorage.getItem('safe_caminata_id');
-        document.getElementById('contenedor-ruta-segura').innerHTML = `
-            <button class="principal" style="background: #c0392b;" onclick="finalizarAlertaEspecifica(${idActual})">✅ Ya llegué bien (Finalizar)</button>
-        `;
+        const elemRuta = document.getElementById('contenedor-ruta-segura');
+        if (elemRuta) {
+            elemRuta.innerHTML = `
+                <button class="principal" style="background: #c0392b;" onclick="finalizarAlertaEspecifica(${idActual})">✅ Ya llegué bien (Finalizar)</button>
+            `;
+        }
     }
 
     function iniciarWatchGPS(origenStr, destinoStr) {
@@ -764,9 +781,12 @@
         }, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
 
         const idActual = localStorage.getItem('safe_caminata_id');
-        document.getElementById('contenedor-ruta-segura').innerHTML = `
-            <button class="principal" style="background: #c0392b;" onclick="finalizarAlertaEspecifica(${idActual})">✅ Ya llegué bien (Finalizar)</button>
-        `;
+        const elemRuta = document.getElementById('contenedor-ruta-segura');
+        if (elemRuta) {
+            elemRuta.innerHTML = `
+                <button class="principal" style="background: #c0392b;" onclick="finalizarAlertaEspecifica(${idActual})">✅ Ya llegué bien (Finalizar)</button>
+            `;
+        }
         alert("🚀 Ruta segura activa en tiempo real.");
     }
 
