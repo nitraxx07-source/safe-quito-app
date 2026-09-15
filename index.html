@@ -206,6 +206,16 @@
     let miNombre = "";
     let miAlertaCaminataId = null;
 
+    let watchID = null;
+    let miMapa = null;
+    let miMarcador = null;
+    let marcadorSalidaTemp = null;
+    let marcadorDestinoTemp = null;
+    let lineaTrayecto = null;
+    let lineaRutaPlaneada = null;
+    let seleccionandoPunto = null;
+    let puntosCoordenadas = [];
+
     window.onload = function() {
         miCedula = localStorage.getItem('safe_cedula');
         miNombre = localStorage.getItem('safe_nombre');
@@ -397,7 +407,35 @@
         }
     }
 
-    let lineaRutaPlaneada = null;
+    async function trazarRutaVial(origenCoords, destinoCoords) {
+        const url = `https://router.project-osrm.org/route/v1/foot/${origenCoords[1]},${origenCoords[0]};${destinoCoords[1]},${destinoCoords[0]}?overview=full&geometries=geojson`;
+
+        try {
+            const res = await fetch(url);
+            const data = await res.json();
+
+            if (data.routes && data.routes.length > 0) {
+                const waypoints = data.routes[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
+
+                if (lineaRutaPlaneada && miMapa) {
+                    miMapa.removeLayer(lineaRutaPlaneada);
+                }
+
+                lineaRutaPlaneada = L.polyline(waypoints, {
+                    color: '#e67e22',
+                    weight: 5,
+                    opacity: 0.8,
+                    dashArray: '8, 8'
+                }).addTo(miMapa);
+
+                miMapa.fitBounds(lineaRutaPlaneada.getBounds(), { padding: [40, 40] });
+            }
+        } catch (error) {
+            console.error("Error al obtener la ruta de calles de OSRM:", error);
+            if (lineaRutaPlaneada && miMapa) miMapa.removeLayer(lineaRutaPlaneada);
+            lineaRutaPlaneada = L.polyline([origenCoords, destinoCoords], { color: '#e67e22', weight: 4, dashArray: '6, 6' }).addTo(miMapa);
+        }
+    }
 
     function enfocarAlertaEnMapa(actualGps, origenGps, destinoGps, tipo, emisor) {
         document.getElementById('mapa-trayecto').style.display = 'block';
@@ -406,7 +444,6 @@
         }
 
         limpiarCapasAuxiliares();
-        let puntosParaEnfocar = [];
 
         if (origenGps && destinoGps && origenGps.includes(',') && destinoGps.includes(',')) {
             const orig = origenGps.split(',').map(Number);
@@ -415,8 +452,7 @@
             if (!isNaN(orig[0]) && !isNaN(dest[0])) {
                 marcadorSalidaTemp = L.marker(orig).addTo(miMapa).bindPopup("📍 Inicio");
                 marcadorDestinoTemp = L.marker(dest).addTo(miMapa).bindPopup("🏁 Destino");
-                lineaRutaPlaneada = L.polyline([orig, dest], { color: '#e67e22', weight: 4, dashArray: '6, 6' }).addTo(miMapa);
-                puntosParaEnfocar.push(orig, dest);
+                trazarRutaVial(orig, dest);
             }
         }
 
@@ -427,12 +463,7 @@
             if (!isNaN(lat) && !isNaN(lng)) {
                 if (miMarcador) miMapa.removeLayer(miMarcador);
                 miMarcador = L.marker([lat, lng]).addTo(miMapa).bindPopup(`<b>${tipo}</b><br>Emisor: ${emisor}`).openPopup();
-                puntosParaEnfocar.push([lat, lng]);
             }
-        }
-
-        if (puntosParaEnfocar.length > 0) {
-            miMapa.fitBounds(L.latLngBounds(puntosParaEnfocar), { padding: [30, 30] });
         }
     }
 
@@ -477,6 +508,8 @@
 
         localStorage.removeItem('safe_caminata_activa');
         localStorage.removeItem('safe_caminata_id');
+        localStorage.removeItem('safe_caminata_salida');
+        localStorage.removeItem('safe_caminata_destino');
 
         try {
             await fetch(`${API_URL}/trayecto/finalizar`, {
@@ -562,15 +595,6 @@
             }
         }, () => alert("📍 Activa el GPS."), {enableHighAccuracy: true});
     }
-
-    let watchID = null;
-    let miMapa = null;
-    let miMarcador = null;
-    let marcadorSalidaTemp = null;
-    let marcadorDestinoTemp = null;
-    let lineaTrayecto = null;
-    let seleccionandoPunto = null;
-    let puntosCoordenadas = [];
 
     function inicializarMapaLeaflet() {
         if (miMapa) return;
@@ -717,6 +741,9 @@
 
                 if (res.ok) {
                     localStorage.setItem('safe_caminata_activa', 'true');
+                    localStorage.setItem('safe_caminata_salida', salida);
+                    localStorage.setItem('safe_caminata_destino', destino);
+
                     if (data.id) {
                         localStorage.setItem('safe_caminata_id', data.id);
                         miAlertaCaminataId = data.id;
@@ -735,9 +762,12 @@
     function retomarMonitoreoCaminata() {
         if (miRol !== 'vecino' && miRol !== 'dirigente') return;
 
+        const salidaGuardada = localStorage.getItem('safe_caminata_salida') || "";
+        const destinoGuardado = localStorage.getItem('safe_caminata_destino') || "";
+
         document.getElementById('mapa-trayecto').style.display = 'block';
         inicializarMapaLeaflet();
-        iniciarWatchGPS("", "");
+        iniciarWatchGPS(salidaGuardada, destinoGuardado);
         
         const idActual = localStorage.getItem('safe_caminata_id');
         const elemRuta = document.getElementById('contenedor-ruta-segura');
@@ -756,7 +786,9 @@
             const orig = origenStr.split(',').map(Number);
             const dest = destinoStr.split(',').map(Number);
             if (!isNaN(orig[0]) && !isNaN(dest[0])) {
-                lineaRutaPlaneada = L.polyline([orig, dest], { color: '#e67e22', weight: 4, dashArray: '6, 6' }).addTo(miMapa);
+                marcadorSalidaTemp = L.marker(orig).addTo(miMapa).bindPopup("📍 Inicio");
+                marcadorDestinoTemp = L.marker(dest).addTo(miMapa).bindPopup("🏁 Destino");
+                trazarRutaVial(orig, dest);
             }
         }
 
@@ -798,7 +830,6 @@
                 <button class="principal" style="background: #c0392b;" onclick="finalizarAlertaEspecifica(${idActual})">✅ Ya llegué bien (Finalizar)</button>
             `;
         }
-        alert("🚀 Ruta segura activa en tiempo real.");
     }
 
     async function cargarChat(alertaId) {
