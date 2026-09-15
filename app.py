@@ -119,7 +119,7 @@ def registrar():
     except Exception as e:
         return jsonify({"status": "error", "msj": "Error al registrar"}), 500
 
-# 3. REPORTAR ALERTA CON ENLACE DIRECTO A WHATSAPP Y CELULAR GUARDADO
+# 3. REPORTAR ALERTA CON ENLACE DIRECTO A WHATSAPP
 @app.route('/api/v1/reportar', methods=['POST'])
 def reportar():
     datos = request.json
@@ -139,7 +139,7 @@ def reportar():
         calle_p = u.get('calle_principal', '')
         calle_s = u.get('calle_secundaria', '')
         num_c = u.get('numero_casa', '')
-        celular = str(u.get('celular', '')).strip() or "Sin número"
+        celular = u.get('celular', 'Sin número')
         
         if calle_p or calle_s:
             dir_exacta = f"{calle_p} y {calle_s} - Casa: {num_c}"
@@ -148,11 +148,11 @@ def reportar():
             
         barrio = u.get('barrio', 'Sin Barrio')
 
-        # Guardar en base de datos incluyendo el celular explícitamente
+        # Guardar en base de datos
         cur.execute("""
-            INSERT INTO reportes (cedula_vecino, nombre_completo, tipo_alerta, gps, barrio, direccion_exacta, estado, celular)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
-        """, (cedula, nombre_completo, tipo_alerta, gps, barrio, dir_exacta, "Pendiente", celular))
+            INSERT INTO reportes (cedula_vecino, nombre_completo, tipo_alerta, gps, barrio, direccion_exacta, estado)
+            VALUES (%s, %s, %s, %s, %s, %s, %s);
+        """, (cedula, nombre_completo, tipo_alerta, gps, barrio, dir_exacta, "Pendiente"))
         
         conn.commit()
         cur.close()
@@ -208,13 +208,14 @@ def eliminar_usuario(cedula_objetivo):
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
 
-# 5. OBTENER REPORTES (DISPONIBLE PARA TODOS CON CELULAR ASEGURADO)
+# 5. OBTENER REPORTES (DISPONIBLE PARA TODOS LOS PERFILES CON TU CONSULTA ORIGINAL)
 @app.route('/api/v1/reportes', methods=['GET'])
 def obtener_reportes():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
         
+        # Ejecutamos tu misma consulta exacta que ya traía el celular desde la tabla de usuarios
         cur.execute("""
             SELECT 
                 r.id,
@@ -229,7 +230,7 @@ def obtener_reportes():
                     NULLIF(r.direccion_exacta, ''), 
                     CONCAT(u.calle_principal, ' y ', u.calle_secundaria, ' - Casa: ', u.numero_casa)
                 ) AS direccion_exacta,
-                COALESCE(NULLIF(r.celular, ''), NULLIF(u.celular, ''), 'Sin número') AS celular,
+                COALESCE(u.celular, 'Sin número') AS celular,
                 COALESCE(u.calle_principal, 'S/N') AS calle_principal,
                 COALESCE(u.calle_secundaria, 'S/N') AS calle_secundaria,
                 COALESCE(u.numero_casa, 'S/N') AS numero_casa
