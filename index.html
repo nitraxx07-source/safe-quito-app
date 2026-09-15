@@ -215,6 +215,7 @@
     let seleccionandoPunto = null;
     let puntosCoordenadas = [];
     let intervalConsultaPuntos = null;
+    let intervalRefrescoChats = null;
 
     window.onload = function() {
         miCedula = localStorage.getItem('safe_cedula');
@@ -487,7 +488,6 @@
                     } else if (miMapa) {
                         lineaTrayecto = L.polyline(puntos, { color: '#27ae60', weight: 6, opacity: 0.85 }).addTo(miMapa);
                     }
-                    // Si el usuario que observa no tiene el marcador actualizado, colocarlo en el último punto
                     const ultimoPunto = puntos[puntos.length - 1];
                     if (ultimoPunto && miMarcador) {
                         miMarcador.setLatLng(ultimoPunto);
