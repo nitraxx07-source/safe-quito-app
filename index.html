@@ -136,9 +136,12 @@
             </div>
 
             <label>Mis Rutas Guardadas:</label>
-            <select id="select-rutas-guardadas" style="width: 100%; padding: 10px; border-radius: 10px; margin-bottom: 10px;" onchange="cargarRutaGuardada()">
-                <option value="">-- Selecciona una ruta guardada --</option>
-            </select>
+            <div style="display: flex; gap: 5px; margin-bottom: 10px;">
+                <select id="select-rutas-guardadas" style="flex: 1; padding: 10px; border-radius: 10px; margin-bottom: 0;" onchange="cargarRutaGuardada()">
+                    <option value="">-- Selecciona una ruta guardada --</option>
+                </select>
+                <button type="button" style="background: #c0392b; color: white; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: bold;" onclick="eliminarRutaGuardada()" title="Eliminar ruta seleccionada">🗑️</button>
+            </div>
 
             <div style="display: flex; gap: 5px; margin-bottom: 10px;">
                 <button class="principal" style="background: #16a085; margin-top:0; font-size:13px; padding:10px;" onclick="guardarRutaActual()">💾 Guardar Ruta</button>
@@ -725,21 +728,49 @@
         const salida = document.getElementById('input-salida').value.trim();
         const destino = document.getElementById('input-destino').value.trim();
 
-        if (!salida || !destino) return alert("Completa la salida y el destino para guardar la ruta.");
+        if (!salida || !destino) {
+            return alert("⚠️ Debes definir tanto la salida como el destino para poder guardar la ruta.");
+        }
 
-        let rutasGuardadas = JSON.parse(localStorage.getItem('safe_rutas_frecuentes')) || [];
+        let rutasGuardadas = [];
+        try {
+            const datosPrevios = localStorage.getItem('safe_rutas_frecuentes');
+            if (datosPrevios) {
+                rutasGuardadas = JSON.parse(datosPrevios);
+            }
+        } catch (e) {
+            rutasGuardadas = [];
+        }
+
         const existe = rutasGuardadas.some(r => r.salida === salida && r.destino === destino);
-        if (existe) return alert("Esta ruta ya está guardada.");
+        if (existe) {
+            return alert("ℹ️ Esta ruta ya se encuentra en tus guardadas.");
+        }
 
         rutasGuardadas.push({ salida, destino });
-        localStorage.setItem('safe_rutas_frecuentes', JSON.stringify(rutasGuardadas));
-        alert("⭐ ¡Ruta guardada con éxito para próximos usos!");
-        actualizarSelectRutasGuardadas();
+        
+        try {
+            localStorage.setItem('safe_rutas_frecuentes', JSON.stringify(rutasGuardadas));
+            alert("⭐ ¡Ruta guardada con éxito!");
+            actualizarSelectRutasGuardadas();
+        } catch (e) {
+            alert("❌ No se pudo guardar. Es posible que tu navegador esté bloqueando el almacenamiento local.");
+        }
     }
 
     function actualizarSelectRutasGuardadas() {
         const select = document.getElementById('select-rutas-guardadas');
-        let rutasGuardadas = JSON.parse(localStorage.getItem('safe_rutas_frecuentes')) || [];
+        if (!select) return;
+
+        let rutasGuardadas = [];
+        try {
+            const datos = localStorage.getItem('safe_rutas_frecuentes');
+            if (datos) {
+                rutasGuardadas = JSON.parse(datos);
+            }
+        } catch (e) {
+            rutasGuardadas = [];
+        }
         
         let html = '<option value="">-- Selecciona una ruta guardada --</option>';
         rutasGuardadas.forEach((r, index) => {
@@ -759,6 +790,29 @@
             document.getElementById('input-salida').value = rutaSeleccionada.salida;
             document.getElementById('input-destino').value = rutaSeleccionada.destino;
         }
+    }
+
+    function eliminarRutaGuardada() {
+        const select = document.getElementById('select-rutas-guardadas');
+        const index = select.value;
+
+        if (index === "") {
+            return alert("Por favor, selecciona una ruta guardada para eliminar.");
+        }
+
+        if (!confirm("¿Estás seguro de que deseas eliminar esta ruta guardada?")) return;
+
+        let rutasGuardadas = JSON.parse(localStorage.getItem('safe_rutas_frecuentes')) || [];
+        
+        rutasGuardadas.splice(index, 1);
+
+        localStorage.setItem('safe_rutas_frecuentes', JSON.stringify(rutasGuardadas));
+
+        document.getElementById('input-salida').value = "";
+        document.getElementById('input-destino').value = "";
+
+        actualizarSelectRutasGuardadas();
+        alert("🗑️ Ruta eliminada con éxito.");
     }
 
     async function iniciarRutaSegura() {
