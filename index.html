@@ -305,7 +305,7 @@
             let reportes = await res.json();
             if (!Array.isArray(reportes)) reportes = [];
 
-            const reportesActivos = reportes.filter(r => r.estado === 'Pendiente' || r.estado === 'En transcurso' || r.tipo_alerta === 'CAMINATA_SEGURA');
+            const reportesActivos = reportes.filter(r => r.estado === 'Pendiente' || r.estado === 'En transcurso');
 
             document.getElementById('contador').innerText = reportesActivos.length;
 
@@ -326,11 +326,12 @@
                 const mapaLink = `https://www.google.com/maps?q=${coordsReal}`;
                 
                 const esEnCurso = r.estado === 'En transcurso';
-                const esCaminata = r.tipo_alerta === 'CAMINATA_SEGURA';
+                const esCaminata = r.tipo_alerta === 'Ruta Segura' || r.tipo_alerta === 'CAMINATA_SEGURA';
                 const textoBadge = esCaminata ? 'CAMINATA' : (esEnCurso ? 'EN CURSO' : 'PENDIENTE');
                 const colorBadge = esCaminata ? '#8e44ad' : (esEnCurso ? '#2980b9' : '#e74c3c');
 
-                const esDuenoOAdmin = (miRol === 'admin' || miRol === 'superadmin' || String(cedulaVecino) === String(miCedula));
+                const esAutorizado = (miRol === 'admin' || miRol === 'dirigente' || miRol === 'policia');
+                const esDuenoOAutorizado = (esAutorizado || String(cedulaVecino) === String(miCedula));
 
                 const mensajeWS = encodeURIComponent(
                     `🚨 *ALERTA BARRIAL: ${r.tipo_alerta}* 🚨\n\n` +
@@ -373,7 +374,7 @@
                         </div>
                     </div>
 
-                    ${esDuenoOAdmin ? `
+                    ${esDuenoOAutorizado ? `
                         <div style="display:flex; gap:10px; margin-top: 8px;" onclick="event.stopPropagation()">
                             ${!esEnCurso && !esCaminata ? `
                                 <button class="btn-accion" style="background:#2980b9;" onclick="cambiarEstado(${r.id}, 'En transcurso')">
@@ -450,7 +451,7 @@
                     'Content-Type': 'application/json', 
                     'X-Usuario-Cedula': miCedula
                 },
-                body: JSON.stringify({ estado: nuevo })
+                body: JSON.stringify({ estado: nuevo, cedula: miCedula })
             });
 
             const data = await res.json().catch(() => ({}));
@@ -458,7 +459,7 @@
             if (res.ok) {
                 await cargarReportes();
             } else {
-                alert(`No se pudo actualizar la alerta (${res.status}): ${data.msj || data.message || 'Error del servidor'}`);
+                alert(`No se pudo actualizar la alerta (${res.status}): ${data.msj || 'Error de autorización'}`);
             }
         } catch(e) { 
             console.error("Error al actualizar estado:", e);
@@ -469,17 +470,14 @@
     async function finalizarAlertaEspecifica(id) {
         if (!confirm("¿Deseas finalizar este reporte o caminata?")) return;
         
-        // 1. Limpieza de rastreo GPS en cliente
         if (watchID !== null) {
             navigator.geolocation.clearWatch(watchID);
             watchID = null;
         }
 
-        // 2. Limpieza de almacenamiento local
         localStorage.removeItem('safe_caminata_activa');
         localStorage.removeItem('safe_caminata_id');
 
-        // 3. Notificación secundaria al servidor (aislada para evitar bloqueos)
         try {
             await fetch(`${API_URL}/trayecto/finalizar`, {
                 method: 'POST',
@@ -490,10 +488,9 @@
                 body: JSON.stringify({ cedula: miCedula, alerta_id: id })
             });
         } catch(e) {
-            console.warn("Aviso: No se pudo notificar /trayecto/finalizar, procediendo con cierre de alerta...", e);
+            console.warn("Aviso: /trayecto/finalizar omitido.", e);
         }
 
-        // 4. Limpiar mapa visualmente
         if (lineaTrayecto && miMapa) {
             miMapa.removeLayer(lineaTrayecto);
             lineaTrayecto = null;
@@ -501,7 +498,6 @@
         limpiarCapasAuxiliares();
         document.getElementById('mapa-trayecto').style.display = 'none';
 
-        // 5. Restablecer interfaz de usuario
         const elemRuta = document.getElementById('contenedor-ruta-segura');
         if (elemRuta && (miRol === 'vecino' || miRol === 'dirigente')) {
             elemRuta.innerHTML = `
@@ -509,7 +505,6 @@
             `;
         }
 
-        // 6. Cambiar estado de la alerta
         await cambiarEstado(id, 'Atendido');
     }
 
@@ -707,15 +702,14 @@
             const gpsStr = `${lat},${lng}`;
 
             try {
-                const res = await fetch(`${API_URL}/reportar`, {
+                const res = await fetch(`${API_URL}/trayecto/iniciar`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
                         cedula: miCedula, 
-                        tipo: 'CAMINATA_SEGURA', 
-                        gps: gpsStr,
-                        origen_gps: salida,
-                        destino_gps: destino
+                        salida: salida,
+                        destino: destino,
+                        gps: gpsStr
                     })
                 });
 
@@ -723,15 +717,17 @@
 
                 if (res.ok) {
                     localStorage.setItem('safe_caminata_activa', 'true');
-                    if(data.id) {
+                    if (data.id) {
                         localStorage.setItem('safe_caminata_id', data.id);
                         miAlertaCaminataId = data.id;
                     }
                     iniciarWatchGPS(salida, destino);
                     cargarReportes();
+                } else {
+                    alert("Error: " + (data.msj || 'No se pudo iniciar el trayecto'));
                 }
             } catch(e) {
-                alert("Error al iniciar caminata en servidor.");
+                alert("Error al iniciar caminata en el servidor.");
             }
         }, () => alert("GPS requerido."), {enableHighAccuracy: true});
     }
@@ -841,6 +837,28 @@
                 cargarChat(alertaId);
             }
         } catch(e) { alert("Error al enviar mensaje"); }
+    }
+
+    async function eliminarUsuario() {
+        const cedulaObjetivo = document.getElementById('input-borrar').value.trim();
+        if (!cedulaObjetivo) return alert("Ingresa la cédula a eliminar");
+        if (!confirm(`¿Seguro que deseas eliminar el usuario ${cedulaObjetivo}?`)) return;
+
+        try {
+            const res = await fetch(`${API_URL}/usuarios/${cedulaObjetivo}`, {
+                method: 'DELETE',
+                headers: { 'X-Usuario-Cedula': miCedula }
+            });
+            const data = await res.json();
+            if (res.ok) {
+                alert("✅ Usuario eliminado");
+                document.getElementById('input-borrar').value = "";
+            } else {
+                alert("❌ Error: " + (data.msj || 'No autorizado'));
+            }
+        } catch(e) {
+            alert("Error de conexión");
+        }
     }
 
     if ('serviceWorker' in navigator) {
