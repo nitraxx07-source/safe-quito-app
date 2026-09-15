@@ -204,11 +204,14 @@
     let miCedula = "";
     let miRol = "";
     let miNombre = "";
+    let idReporteCaminataActual = null;
 
     window.onload = function() {
         miCedula = localStorage.getItem('safe_cedula');
         miNombre = localStorage.getItem('safe_nombre');
         miRol = localStorage.getItem('safe_rol');
+        idReporteCaminataActual = localStorage.getItem('safe_id_caminata');
+
         if (miCedula && miNombre) { 
             lanzarApp(miNombre, miRol); 
             const caminataActiva = localStorage.getItem('safe_caminata_activa');
@@ -285,7 +288,10 @@
     async function cargarReportes() {
         try {
             const res = await fetch(`${API_URL}/reportes`, { 
-                headers: { 'X-Usuario-Cedula': miCedula } 
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-Usuario-Cedula': miCedula 
+                } 
             });
             
             if (!res.ok) {
@@ -296,7 +302,7 @@
             let reportes = await res.json();
             if (!Array.isArray(reportes)) reportes = [];
 
-            const reportesActivos = reportes.filter(r => r.estado === 'Pendiente' || r.estado === 'En transcurso' || r.tipo_alerta === 'CAMINATA_SEGURA');
+            const reportesActivos = reportes.filter(r => r.estado === 'Pendiente' || r.estado === 'En transcurso' || (r.tipo_alerta === 'CAMINATA_SEGURA' && r.estado !== 'Atendido' && r.estado !== 'Finalizado'));
 
             document.getElementById('contador').innerText = reportesActivos.length;
 
@@ -360,7 +366,7 @@
                         </div>
                     </div>
 
-                    ${miRol !== 'vecino' || cedulaVecino === miCedula ? `
+                    ${miRol === 'admin' || miRol === 'encargado' || cedulaVecino === miCedula ? `
                         <div style="display:flex; gap:10px; margin-top: 8px;" onclick="event.stopPropagation()">
                             ${!esEnCurso && !esCaminata ? `
                                 <button class="btn-accion" style="background:#2980b9;" onclick="cambiarEstado(${r.id}, 'En transcurso')">
@@ -401,22 +407,39 @@
             .openOn(miMapa);
     }
 
-    async function cambiarEstado(id, nuevo) {
+    async function cambiarEstado(id, nuevoEstado) {
         try {
+            const payload = { 
+                estado: nuevoEstado, 
+                status: nuevoEstado, 
+                cedula: miCedula 
+            };
+
             const res = await fetch(`${API_URL}/reportes/${id}`, {
                 method: 'PUT',
-                headers: {'Content-Type': 'application/json', 'X-Usuario-Cedula': miCedula},
-                body: JSON.stringify({estado: nuevo})
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Usuario-Cedula': miCedula
+                },
+                body: JSON.stringify(payload)
             });
-            if(res.ok) {
+
+            if (res.ok) {
                 if (watchID !== null) {
-                    finalizarRutaSegura();
+                    finalizarRutaSegura(id);
                 } else {
                     localStorage.removeItem('safe_caminata_activa');
+                    localStorage.removeItem('safe_id_caminata');
+                    idReporteCaminataActual = null;
                     cargarReportes();
                 }
+            } else {
+                const errData = await res.json().catch(() => ({}));
+                alert("No se pudo finalizar la alerta: " + (errData.msj || errData.message || "Error del servidor"));
             }
-        } catch(e) { alert("Error al actualizar"); }
+        } catch(e) { 
+            alert("Error de conexión al actualizar el estado."); 
+        }
     }
 
     async function registrar() {
@@ -452,7 +475,10 @@
             try {
                 const res = await fetch(`${API_URL}/reportar`, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Usuario-Cedula': miCedula
+                    },
                     body: JSON.stringify({
                         cedula: miCedula, 
                         tipo: tipo, 
@@ -615,14 +641,23 @@
             try {
                 const res = await fetch(`${API_URL}/reportar`, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Usuario-Cedula': miCedula
+                    },
                     body: JSON.stringify({
                         cedula: miCedula, 
                         tipo: 'CAMINATA_SEGURA', 
                         gps: gpsStr
                     })
                 });
+
+                const data = await res.json();
                 if (res.ok) {
+                    if (data.id || data.reporte_id) {
+                        idReporteCaminataActual = data.id || data.reporte_id;
+                        localStorage.setItem('safe_id_caminata', idReporteCaminataActual);
+                    }
                     localStorage.setItem('safe_caminata_activa', 'true');
                     iniciarWatchGPS(destino);
                 }
@@ -665,7 +700,10 @@
             try {
                 await fetch(`${API_URL}/reportar`, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Usuario-Cedula': miCedula
+                    },
                     body: JSON.stringify({ cedula: miCedula, tipo: 'CAMINATA_SEGURA', gps: gpsString })
                 });
             } catch(e) {}
@@ -675,18 +713,28 @@
         }, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
 
         document.getElementById('contenedor-ruta-segura').innerHTML = `
-            <button class="principal" style="background: #c0392b;" onclick="finalizarRutaSegura()">✅ Ya llegué bien (Finalizar)</button>
+            <button class="principal" style="background: #c0392b;" onclick="solicitarFinalizarCaminata()">✅ Ya llegué bien (Finalizar)</button>
         `;
         alert("🚀 Ruta segura activa en tiempo real.");
     }
 
-    async function finalizarRutaSegura() {
+    async function solicitarFinalizarCaminata() {
+        if (idReporteCaminataActual) {
+            await cambiarEstado(idReporteCaminataActual, 'Atendido');
+        } else {
+            finalizarRutaSegura();
+        }
+    }
+
+    function finalizarRutaSegura() {
         if (watchID !== null) {
             navigator.geolocation.clearWatch(watchID);
             watchID = null;
         }
 
         localStorage.removeItem('safe_caminata_activa');
+        localStorage.removeItem('safe_id_caminata');
+        idReporteCaminataActual = null;
 
         if (lineaTrayecto && miMapa) {
             miMapa.removeLayer(lineaTrayecto);
@@ -735,7 +783,10 @@
         try {
             const res = await fetch(`${API_URL}/reportes/${reporteId}/chat`, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Usuario-Cedula': miCedula
+                },
                 body: JSON.stringify({ 
                     cedula: miCedula, 
                     mensaje: mensaje,
