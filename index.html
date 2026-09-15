@@ -409,10 +409,12 @@
                 body: JSON.stringify({estado: nuevo})
             });
             if(res.ok) {
-                if (miCedula) {
+                if (watchID !== null) {
+                    finalizarRutaSegura();
+                } else {
                     localStorage.removeItem('safe_caminata_activa');
+                    cargarReportes();
                 }
-                cargarReportes();
             }
         } catch(e) { alert("Error al actualizar"); }
     }
@@ -634,9 +636,6 @@
         document.getElementById('mapa-trayecto').style.display = 'block';
         inicializarMapaLeaflet();
         iniciarWatchGPS("Destino en curso");
-        document.getElementById('contenedor-ruta-segura').innerHTML = `
-            <button class="principal" style="background: #c0392b;" onclick="finalizarRutaSegura()">✅ Ya llegué bien (Finalizar)</button>
-        `;
     }
 
     function iniciarWatchGPS(destinoStr) {
@@ -646,6 +645,7 @@
         watchID = navigator.geolocation.watchPosition(async (pos) => {
             const lat = pos.coords.latitude;
             const lng = pos.coords.longitude;
+            const gpsString = `${lat},${lng}`;
 
             puntosCoordenadas.push([lat, lng]);
 
@@ -663,10 +663,10 @@
             }
 
             try {
-                await fetch(`${API_URL}/trayecto/actualizar`, {
+                await fetch(`${API_URL}/reportar`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ cedula: miCedula, lat: lat, lng: lng })
+                    body: JSON.stringify({ cedula: miCedula, tipo: 'CAMINATA_SEGURA', gps: gpsString })
                 });
             } catch(e) {}
 
@@ -688,14 +688,6 @@
 
         localStorage.removeItem('safe_caminata_activa');
 
-        try {
-            await fetch(`${API_URL}/trayecto/finalizar`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ cedula: miCedula })
-            });
-        } catch(e) {}
-
         if (lineaTrayecto && miMapa) {
             miMapa.removeLayer(lineaTrayecto);
             lineaTrayecto = null;
@@ -711,42 +703,69 @@
         alert("🏠 ¡Qué bueno que llegaste con bien! Ruta finalizada.");
     }
 
-    async function cargarChat(alertaId) {
+    async function cargarChat(reporteId) {
         try {
-            const res = await fetch(`${API_URL}/alerta/${alertaId}/chat`);
+            const res = await fetch(`${API_URL}/reportes/${reporteId}/chat`);
+            if (!res.ok) return;
             const mensajes = await res.json();
+            const box = document.getElementById(`mensajes-${reporteId}`);
+            if (!box) return;
+
+            if (!Array.isArray(mensajes) || mensajes.length === 0) {
+                box.innerHTML = "<i style='color:gray;'>No hay mensajes aún.</i>";
+                return;
+            }
+
             let html = "";
             mensajes.forEach(m => {
-                html += `<div class="chat-mensaje"><b>${m.remitente} (${m.rol || 'vecino'}):</b> ${m.texto}</div>`;
+                const remitente = m.remitente || m.nombre || 'Vecino';
+                const texto = m.mensaje || m.texto || '';
+                html += `<div class="chat-mensaje"><b>${remitente}:</b> ${texto}</div>`;
             });
-            const contenedorChat = document.getElementById(`mensajes-${alertaId}`);
-            if (contenedorChat) {
-                contenedorChat.innerHTML = html || "<i style='color:gray;'>Sin mensajes aún...</i>";
-            }
+            box.innerHTML = html;
+            box.scrollTop = box.scrollHeight;
         } catch(e) {}
     }
 
-    async function enviarMensajeChat(alertaId) {
-        const input = document.getElementById(`input-chat-${alertaId}`);
-        const texto = input.value.trim();
-        if (!texto) return;
+    async function enviarMensajeChat(reporteId) {
+        const input = document.getElementById(`input-chat-${reporteId}`);
+        const mensaje = input.value.trim();
+        if (!mensaje) return;
 
         try {
-            const res = await fetch(`${API_URL}/alerta/${alertaId}/chat`, {
+            const res = await fetch(`${API_URL}/reportes/${reporteId}/chat`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ 
                     cedula: miCedula, 
-                    texto: texto,
-                    nombre: miNombre,
-                    rol: miRol
+                    mensaje: mensaje,
+                    texto: mensaje
                 })
             });
             if (res.ok) {
                 input.value = "";
-                cargarChat(alertaId);
+                cargarChat(reporteId);
             }
-        } catch(e) { alert("Error al enviar mensaje"); }
+        } catch(e) { alert("Error al enviar mensaje."); }
+    }
+
+    async function eliminarUsuario() {
+        const cedulaABorrar = document.getElementById('input-borrar').value.trim();
+        if (!cedulaABorrar) return alert("Ingresa la cédula a eliminar.");
+        if (!confirm(`¿Eliminar al usuario con cédula ${cedulaABorrar}?`)) return;
+
+        try {
+            const res = await fetch(`${API_URL}/usuarios/${cedulaABorrar}`, {
+                method: 'DELETE',
+                headers: {'X-Usuario-Cedula': miCedula}
+            });
+            if (res.ok) {
+                alert("Usuario eliminado correctamente.");
+                document.getElementById('input-borrar').value = "";
+            } else {
+                alert("Error al eliminar usuario.");
+            }
+        } catch(e) { alert("Error de red."); }
     }
 
     if ('serviceWorker' in navigator) {
