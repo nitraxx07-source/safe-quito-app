@@ -22,6 +22,10 @@ VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY")
 VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY")
 VAPID_CLAIMS = {"sub": "mailto:NITRAXX07@GMAIL.COM"}
 
+# Memoria temporal para coordenadas en tiempo real de rutas seguras
+trayectos_activos = {}
+chats_alertas = {}
+
 @app.route('/')
 def home():
     return "Servidor SafeQuito - Sistema Activo en Neon Postgres", 200
@@ -162,10 +166,10 @@ def reportar():
         cur.close()
         conn.close()
 
-        # Enviar notificación Push existente
+        # Enviar notificación Push
         disparar_notificaciones_push(tipo_alerta, barrio)
 
-        # Crear mensaje estructurado para WhatsApp
+        # Mensaje estructurado para WhatsApp
         mapa_url = f"https://www.google.com/maps?q={gps}"
         mensaje_wa = (
             f"🚨 *ALERTA DE SEGURIDAD - SAFEQUITO* 🚨\n\n"
@@ -213,7 +217,7 @@ def eliminar_usuario(cedula_objetivo):
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
 
-# 5. OBTENER REPORTES (SOLO ACTIVOS: Pendiente o En transcurso)
+# 5. OBTENER REPORTES (SOLO PENDIENTES O EN TRANSCURSO)
 @app.route('/api/v1/reportes', methods=['GET'])
 def obtener_reportes():
     try:
@@ -251,12 +255,16 @@ def obtener_reportes():
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
 
-# 6. ACTUALIZAR ESTADO (PERMITIDO A ADMIN, DIRIGENTE, POLICIA O AL DUEÑO DE LA ALERTA)
+# 6. ACTUALIZAR ESTADO (VECINO DUEÑO DE LA ALERTA, ADMIN, DIRIGENTE O POLICIA)
 @app.route('/api/v1/reportes/<int:id_reporte>', methods=['PUT'])
 def actualizar_estado(id_reporte):
     datos = request.json or {}
     nuevo_estado = datos.get('estado')
-    user_cedula = str(request.headers.get('X-Usuario-Cedula', '')).strip()
+    
+    # Se extrae la cédula recibida en los headers o en el body
+    user_cedula = str(
+        request.headers.get('X-Usuario-Cedula') or datos.get('cedula', '')
+    ).strip()
 
     if not nuevo_estado:
         return jsonify({"status": "error", "msj": "Estado no proporcionado"}), 400
@@ -265,7 +273,7 @@ def actualizar_estado(id_reporte):
         conn = get_db_connection()
         cur = conn.cursor()
 
-        # 1. Obtener la alerta para saber quién es el creador
+        # Obtener datos de la alerta
         cur.execute("SELECT TRIM(cedula_vecino::text) AS cedula_vecino FROM reportes WHERE id = %s;", (id_reporte,))
         reporte = cur.fetchone()
 
@@ -274,18 +282,23 @@ def actualizar_estado(id_reporte):
             conn.close()
             return jsonify({"status": "error", "msj": "Alerta no encontrada"}), 404
 
-        # 2. Obtener el rol del usuario que realiza la petición
+        # Obtener rol del usuario emisor de la petición
         cur.execute("SELECT rol FROM usuarios WHERE TRIM(cedula::text) = %s;", (user_cedula,))
         user_info = cur.fetchone()
         rol = user_info['rol'] if user_info else 'vecino'
 
+        # El vecino puede modificar su propia alerta si su cédula coincide
         es_dueno = (reporte['cedula_vecino'] == user_cedula)
-        es_autorizado = rol in ['admin', 'dirigente', 'policia', 'superadmin']
+        es_autorizado = rol in ['admin', 'dirigente', 'policia']
 
-        # 3. Validar permisos (Dueño de la alerta O un Admin/Dirigente)
         if es_dueno or es_autorizado:
             cur.execute("UPDATE reportes SET estado = %s WHERE id = %s;", (nuevo_estado, id_reporte))
             conn.commit()
+
+            # Si existía en memoria dentro de trayectos activos, eliminarlo
+            if reporte['cedula_vecino'] in trayectos_activos:
+                trayectos_activos.pop(reporte['cedula_vecino'], None)
+
             cur.close()
             conn.close()
             return jsonify({"status": "ok", "msj": "Estado actualizado correctamente"}), 200
@@ -320,38 +333,101 @@ def suscribir():
         return jsonify({"status": "error", "msj": str(e)}), 500
 
 # 8. RUTAS PARA RUTA SEGURA / TRAYECTOS ACTIVOS
-trayectos_activos = {}
-
 @app.route('/api/v1/trayecto/iniciar', methods=['POST'])
 def iniciar_trayecto():
-    data = request.get_json()
-    cedula = data.get('cedula')
+    data = request.get_json() or {}
+    cedula = str(data.get('cedula', '')).strip()
     destino = data.get('destino')
     salida = data.get('salida', '')
-    trayectos_activos[cedula] = {'salida': salida, 'destino': destino, 'lat': None, 'lng': None, 'estado': 'en_camino'}
-    return jsonify({'status': 'ok'})
+    gps = data.get('gps', '0,0')
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        cur.execute("SELECT * FROM usuarios WHERE TRIM(cedula::text) = %s;", (cedula,))
+        u = cur.fetchone() or {}
+        nombre_completo = f"{u.get('nombres', '')} {u.get('apellidos', '')}".strip() or "Vecino"
+        barrio = u.get('barrio', 'Sin Barrio')
+
+        # Registrar el trayecto en la BD
+        cur.execute("""
+            INSERT INTO reportes (cedula_vecino, nombre_completo, tipo_alerta, gps, barrio, direccion_exacta, estado)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            RETURNING id;
+        """, (cedula, nombre_completo, 'Ruta Segura', gps, barrio, f"Hacia: {destino}", 'En transcurso'))
+        
+        alerta_creada = cur.fetchone()
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        trayectos_activos[cedula] = {
+            'id_reporte': alerta_creada['id'] if alerta_creada else None,
+            'salida': salida, 
+            'destino': destino, 
+            'lat': None, 
+            'lng': None, 
+            'estado': 'en_camino'
+        }
+        return jsonify({'status': 'ok', 'id': alerta_creada['id'] if alerta_creada else None}), 200
+
+    except Exception as e:
+        return jsonify({'status': 'error', 'msj': str(e)}), 500
 
 @app.route('/api/v1/trayecto/actualizar', methods=['POST'])
 def actualizar_trayecto():
-    data = request.get_json()
-    cedula = data.get('cedula')
+    data = request.get_json() or {}
+    cedula = str(data.get('cedula', '')).strip()
     lat = data.get('lat')
     lng = data.get('lng')
+    
     if cedula in trayectos_activos:
         trayectos_activos[cedula]['lat'] = lat
         trayectos_activos[cedula]['lng'] = lng
-    return jsonify({'status': 'ok'})
+        
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute("""
+                UPDATE reportes 
+                SET gps = %s 
+                WHERE TRIM(cedula_vecino::text) = %s AND tipo_alerta = 'Ruta Segura' AND estado = 'En transcurso';
+            """, (f"{lat},{lng}", cedula))
+            conn.commit()
+            cur.close()
+            conn.close()
+        except:
+            pass
+
+    return jsonify({'status': 'ok'}), 200
 
 @app.route('/api/v1/trayecto/finalizar', methods=['POST'])
 def finalizar_trayecto():
-    data = request.get_json()
-    cedula = data.get('cedula')
-    trayectos_activos.pop(cedula, None)
-    return jsonify({'status': 'ok'})
+    data = request.get_json() or {}
+    cedula = str(data.get('cedula', '')).strip()
 
-# 9. RUTAS PARA EL CHAT DE TEXTO POR ALERTA CON ROL Y NOMBRE REAL
-chats_alertas = {}
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
 
+        cur.execute("""
+            UPDATE reportes 
+            SET estado = 'Atendido' 
+            WHERE TRIM(cedula_vecino::text) = %s AND tipo_alerta = 'Ruta Segura' AND estado = 'En transcurso';
+        """, (cedula,))
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        trayectos_activos.pop(cedula, None)
+        return jsonify({'status': 'ok', 'msj': 'Trayecto finalizado'}), 200
+
+    except Exception as e:
+        return jsonify({'status': 'error', 'msj': str(e)}), 500
+
+# 9. CHAT DE TEXTO POR ALERTA CON ROL Y NOMBRE REAL
 @app.route('/api/v1/alerta/<alerta_id>/chat', methods=['GET'])
 def obtener_chat(alerta_id):
     mensajes = chats_alertas.get(str(alerta_id), [])
@@ -359,8 +435,8 @@ def obtener_chat(alerta_id):
 
 @app.route('/api/v1/alerta/<alerta_id>/chat', methods=['POST'])
 def enviar_mensaje_chat(alerta_id):
-    data = request.get_json()
-    cedula = data.get('cedula')
+    data = request.get_json() or {}
+    cedula = str(data.get('cedula', '')).strip()
     texto = data.get('texto')
     nombre_usuario = data.get('nombre')
     rol_usuario = data.get('rol')
@@ -373,7 +449,7 @@ def enviar_mensaje_chat(alerta_id):
         try:
             conn = get_db_connection()
             cur = conn.cursor()
-            cur.execute("SELECT nombres, apellidos, rol FROM usuarios WHERE TRIM(cedula::text) = %s;", (str(cedula).strip(),))
+            cur.execute("SELECT nombres, apellidos, rol FROM usuarios WHERE TRIM(cedula::text) = %s;", (cedula,))
             u = cur.fetchone()
             if u:
                 nombre_usuario = f"{u['nombres']} {u['apellidos']}".strip()
