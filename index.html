@@ -204,11 +204,14 @@
     let miCedula = "";
     let miRol = "";
     let miNombre = "";
+    let miAlertaCaminataId = null;
 
     window.onload = function() {
         miCedula = localStorage.getItem('safe_cedula');
         miNombre = localStorage.getItem('safe_nombre');
         miRol = localStorage.getItem('safe_rol');
+        miAlertaCaminataId = localStorage.getItem('safe_caminata_id');
+
         if (miCedula && miNombre) { 
             lanzarApp(miNombre, miRol); 
             const caminataActiva = localStorage.getItem('safe_caminata_activa');
@@ -321,6 +324,9 @@
                 const textoBadge = esCaminata ? 'CAMINATA' : (esEnCurso ? 'EN CURSO' : 'PENDIENTE');
                 const colorBadge = esCaminata ? '#8e44ad' : (esEnCurso ? '#2980b9' : '#e74c3c');
 
+                // Validación de permisos: Solo el emisor o el Admin ven los botones de acción / finalización
+                const esDuenoOAdmin = (miRol === 'admin' || miRol === 'superadmin' || String(cedulaVecino) === String(miCedula));
+
                 const mensajeWS = encodeURIComponent(
                     `🚨 *ALERTA BARRIAL: ${r.tipo_alerta}* 🚨\n\n` +
                     `👤 *Emitida por:* ${nombreCompleto}\n` +
@@ -362,14 +368,14 @@
                         </div>
                     </div>
 
-                    ${miRol !== 'vecino' || cedulaVecino === miCedula ? `
+                    ${esDuenoOAdmin ? `
                         <div style="display:flex; gap:10px; margin-top: 8px;" onclick="event.stopPropagation()">
                             ${!esEnCurso && !esCaminata ? `
                                 <button class="btn-accion" style="background:#2980b9;" onclick="cambiarEstado(${r.id}, 'En transcurso')">
                                     TOMAR ALERTA
                                 </button>` : ''}
-                            <button class="btn-accion" style="background:#27ae60;" onclick="cambiarEstado(${r.id}, 'Atendido')">
-                                FINALIZAR / LLEGUÉ BIEN
+                            <button class="btn-accion" style="background:#27ae60;" onclick="finalizarAlertaEspecifica(${r.id})">
+                                ✅ FINALIZAR / LLEGUÉ BIEN
                             </button>
                         </div>
                     ` : ''}
@@ -396,7 +402,6 @@
         limpiarCapasAuxiliares();
         let puntosParaEnfocar = [];
 
-        // 1. Trazar linea planeada si existe origen y destino
         if (origenGps && destinoGps && origenGps.includes(',') && destinoGps.includes(',')) {
             const orig = origenGps.split(',').map(Number);
             const dest = destinoGps.split(',').map(Number);
@@ -409,7 +414,6 @@
             }
         }
 
-        // 2. Marcar punto de posición actual de la alerta
         if (actualGps && actualGps.includes(',')) {
             const partes = actualGps.split(',');
             const lat = parseFloat(partes[0]);
@@ -441,12 +445,45 @@
                 body: JSON.stringify({estado: nuevo})
             });
             if(res.ok) {
-                if (miCedula) {
-                    localStorage.removeItem('safe_caminata_activa');
-                }
                 cargarReportes();
             }
         } catch(e) { alert("Error al actualizar"); }
+    }
+
+    async function finalizarAlertaEspecifica(id) {
+        if (!confirm("¿Deseas finalizar este reporte o caminata?")) return;
+        
+        await cambiarEstado(id, 'Atendido');
+
+        if (watchID !== null) {
+            navigator.geolocation.clearWatch(watchID);
+            watchID = null;
+        }
+
+        localStorage.removeItem('safe_caminata_activa');
+        localStorage.removeItem('safe_caminata_id');
+
+        try {
+            await fetch(`${API_URL}/trayecto/finalizar`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ cedula: miCedula })
+            });
+        } catch(e) {}
+
+        if (lineaTrayecto && miMapa) {
+            miMapa.removeLayer(lineaTrayecto);
+            lineaTrayecto = null;
+        }
+        limpiarCapasAuxiliares();
+
+        document.getElementById('mapa-trayecto').style.display = 'none';
+        document.getElementById('contenedor-ruta-segura').innerHTML = `
+            <button class="principal" style="background: #27ae60;" onclick="abrirConfigRuta()">🚶‍♂️ Activar Ruta Segura (Modo Escolta)</button>
+        `;
+
+        alert("✅ Reporte finalizado exitosamente.");
+        cargarReportes();
     }
 
     async function registrar() {
@@ -654,9 +691,17 @@
                         destino_gps: destino
                     })
                 });
+
+                const data = await res.json();
+
                 if (res.ok) {
                     localStorage.setItem('safe_caminata_activa', 'true');
+                    if(data.id) {
+                        localStorage.setItem('safe_caminata_id', data.id);
+                        miAlertaCaminataId = data.id;
+                    }
                     iniciarWatchGPS(salida, destino);
+                    cargarReportes();
                 }
             } catch(e) {
                 alert("Error al iniciar caminata en servidor.");
@@ -668,8 +713,10 @@
         document.getElementById('mapa-trayecto').style.display = 'block';
         inicializarMapaLeaflet();
         iniciarWatchGPS("", "");
+        
+        const idActual = localStorage.getItem('safe_caminata_id');
         document.getElementById('contenedor-ruta-segura').innerHTML = `
-            <button class="principal" style="background: #c0392b;" onclick="finalizarRutaSegura()">✅ Ya llegué bien (Finalizar)</button>
+            <button class="principal" style="background: #c0392b;" onclick="finalizarAlertaEspecifica(${idActual})">✅ Ya llegué bien (Finalizar)</button>
         `;
     }
 
@@ -677,7 +724,6 @@
         puntosCoordenadas = [];
         if (watchID !== null) navigator.geolocation.clearWatch(watchID);
 
-        // Dibujar línea guía si hay parámetros de origen y destino
         if (origenStr && destinoStr && origenStr.includes(',') && destinoStr.includes(',')) {
             const orig = origenStr.split(',').map(Number);
             const dest = destinoStr.split(',').map(Number);
@@ -717,40 +763,11 @@
             console.error("Error GPS watch", err);
         }, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
 
+        const idActual = localStorage.getItem('safe_caminata_id');
         document.getElementById('contenedor-ruta-segura').innerHTML = `
-            <button class="principal" style="background: #c0392b;" onclick="finalizarRutaSegura()">✅ Ya llegué bien (Finalizar)</button>
+            <button class="principal" style="background: #c0392b;" onclick="finalizarAlertaEspecifica(${idActual})">✅ Ya llegué bien (Finalizar)</button>
         `;
         alert("🚀 Ruta segura activa en tiempo real.");
-    }
-
-    async function finalizarRutaSegura() {
-        if (watchID !== null) {
-            navigator.geolocation.clearWatch(watchID);
-            watchID = null;
-        }
-
-        localStorage.removeItem('safe_caminata_activa');
-
-        try {
-            await fetch(`${API_URL}/trayecto/finalizar`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ cedula: miCedula })
-            });
-        } catch(e) {}
-
-        if (lineaTrayecto && miMapa) {
-            miMapa.removeLayer(lineaTrayecto);
-            lineaTrayecto = null;
-        }
-        limpiarCapasAuxiliares();
-
-        document.getElementById('mapa-trayecto').style.display = 'none';
-        document.getElementById('contenedor-ruta-segura').innerHTML = `
-            <button class="principal" style="background: #27ae60;" onclick="abrirConfigRuta()">🚶‍♂️ Activar Ruta Segura (Modo Escolta)</button>
-        `;
-        cargarReportes();
-        alert("🏠 ¡Qué bueno que llegaste con bien! Ruta finalizada.");
     }
 
     async function cargarChat(alertaId) {
