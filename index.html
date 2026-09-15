@@ -384,18 +384,17 @@
                         </div>
                     </div>
 
-                    // REEMPLÁZALO POR ESTE:
-${esDuenoOAutorizado ? `
-    <div style="display:flex; gap:10px; margin-top: 8px;" onclick="event.stopPropagation()">
-        ${!esEnCurso ? `
-            <button class="btn-accion" style="background:#2980b9;" onclick="cambiarEstado(${r.id}, 'En progreso')">
-                TOMAR
-            </button>` : ''}
-        <button class="btn-accion" style="background:#27ae60;" onclick="finalizarAlertaEspecifica(${r.id})">
-            FINALIZAR
-        </button>
-    </div>
-` : ''}
+                    ${esDuenoOAutorizado ? `
+                        <div style="display:flex; gap:10px; margin-top: 8px;" onclick="event.stopPropagation()">
+                            ${!esEnCurso ? `
+                                <button class="btn-accion" style="background:#2980b9;" onclick="cambiarEstado(${r.id}, 'En transcurso')">
+                                    TOMAR
+                                </button>` : ''}
+                            <button class="btn-accion" style="background:#27ae60;" onclick="finalizarAlertaEspecifica(${r.id})">
+                                FINALIZAR
+                            </button>
+                        </div>
+                    ` : ''}
                 </div>`;
                 
                 setTimeout(() => cargarChat(r.id), 200);
@@ -470,7 +469,6 @@ ${esDuenoOAutorizado ? `
             }
         }
 
-        // Si es una caminata y no somos el emisor, consultar los puntos recorridos
         if (alertaId) {
             actualizarTrayectoEnVivoDesdeServidor(alertaId);
             if (intervalConsultaPuntos) clearInterval(intervalConsultaPuntos);
@@ -584,7 +582,7 @@ ${esDuenoOAutorizado ? `
             calle_secundaria: document.getElementById('reg-secundaria').value.trim(),
             numero_casa: document.getElementById('reg-casa').value.trim(),
             password: document.getElementById('reg-pass').value,
-            acepto_terminos: aceptoTerminos // 👈 Se envía la confirmación explícita al servidor Flask
+            acepto_terminos: aceptoTerminos
         };
 
         try {
@@ -820,7 +818,6 @@ ${esDuenoOAutorizado ? `
     }
 
     function iniciarWatchGPS(origenStr, destinoStr) {
-        // Recuperar historial guardado en localStorage
         const guardados = localStorage.getItem('safe_caminata_puntos');
         puntosCoordenadas = guardados ? JSON.parse(guardados) : [];
 
@@ -837,7 +834,6 @@ ${esDuenoOAutorizado ? `
             }
         }
 
-        // Trazar puntos guardados previamente
         if (puntosCoordenadas.length > 0) {
             lineaTrayecto = L.polyline(puntosCoordenadas, { color: '#27ae60', weight: 6, opacity: 0.85 }).addTo(miMapa);
         }
