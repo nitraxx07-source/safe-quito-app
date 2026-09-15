@@ -67,7 +67,7 @@ def disparar_notificaciones_push(tipo, barrio):
         if conn:
             conn.close()
 
-# 1. LOGIN
+# 1. LOGIN (Verifica si el usuario tiene una Ruta Segura activa y la devuelve para la PWA)
 @app.route('/api/v1/login', methods=['POST'])
 def login():
     datos = request.json or {}
@@ -83,16 +83,29 @@ def login():
         cur = conn.cursor()
         cur.execute("SELECT * FROM usuarios WHERE TRIM(cedula::text) = %s;", (cedula,))
         usuario = cur.fetchone()
-        cur.close()
 
         if usuario and bcrypt.check_password_hash(usuario['password'], password):
+            # Buscar si este usuario tiene un trayecto de Ruta Segura pendiente/en transcurso
+            cur.execute("""
+                SELECT id FROM reportes 
+                WHERE TRIM(cedula_vecino::text) = %s AND tipo_alerta = 'Ruta Segura' AND estado = 'En transcurso'
+                ORDER BY id DESC LIMIT 1;
+            """, (cedula,))
+            trayecto_activo = cur.fetchone()
+            alerta_id_activo = trayecto_activo['id'] if trayecto_activo else None
+
+            cur.close()
+
             return jsonify({
                 "status": "ok", 
                 "nombre": f"{usuario['nombres']} {usuario['apellidos']}".strip(),
                 "barrio": usuario['barrio'],
-                "rol": usuario.get('rol', 'vecino')
+                "rol": usuario.get('rol', 'vecino'),
+                "alerta_id_activo": alerta_id_activo # Devuelve la ruta activa si existía
             }), 200
         else:
+            if cur:
+                cur.close()
             return jsonify({"status": "error", "msj": "Cédula o clave incorrecta"}), 401
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
