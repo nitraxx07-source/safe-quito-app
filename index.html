@@ -273,7 +273,6 @@
 
         document.getElementById('panel-gestion').classList.remove('oculto');
 
-        // Visibilidad según roles comunitarios (vecino y dirigente)
         const esUsuarioComunitario = (rol === 'vecino' || rol === 'dirigente');
         const elemRuta = document.getElementById('contenedor-ruta-segura');
 
@@ -281,7 +280,6 @@
             document.getElementById('contenedor-botones').classList.remove('oculto');
             if (elemRuta) elemRuta.style.display = 'block';
         } else {
-            // Se oculta la Ruta Segura para admin, policia, etc.
             if (elemRuta) elemRuta.style.display = 'none';
         }
 
@@ -332,7 +330,6 @@
                 const textoBadge = esCaminata ? 'CAMINATA' : (esEnCurso ? 'EN CURSO' : 'PENDIENTE');
                 const colorBadge = esCaminata ? '#8e44ad' : (esEnCurso ? '#2980b9' : '#e74c3c');
 
-                // Validación de permisos: Solo el emisor o el Admin ven los botones de acción / finalización
                 const esDuenoOAdmin = (miRol === 'admin' || miRol === 'superadmin' || String(cedulaVecino) === String(miCedula));
 
                 const mensajeWS = encodeURIComponent(
@@ -449,41 +446,54 @@
         try {
             const res = await fetch(`${API_URL}/reportes/${id}`, {
                 method: 'PUT',
-                headers: {'Content-Type': 'application/json', 'X-Usuario-Cedula': miCedula},
-                body: JSON.stringify({estado: nuevo})
+                headers: {
+                    'Content-Type': 'application/json', 
+                    'X-Usuario-Cedula': miCedula
+                },
+                body: JSON.stringify({ estado: nuevo })
             });
-            if(res.ok) {
+
+            const data = await res.json().catch(() => ({}));
+
+            if (res.ok) {
                 await cargarReportes();
             } else {
-                alert("No se pudo actualizar el estado de la alerta.");
+                alert(`No se pudo actualizar la alerta (${res.status}): ${data.msj || data.message || 'Error del servidor'}`);
             }
         } catch(e) { 
             console.error("Error al actualizar estado:", e);
-            alert("Error de conexión al actualizar el estado."); 
+            alert("Error de conexión al intentar actualizar el estado."); 
         }
     }
 
     async function finalizarAlertaEspecifica(id) {
         if (!confirm("¿Deseas finalizar este reporte o caminata?")) return;
         
+        // 1. Limpieza de rastreo GPS en cliente
         if (watchID !== null) {
             navigator.geolocation.clearWatch(watchID);
             watchID = null;
         }
 
+        // 2. Limpieza de almacenamiento local
         localStorage.removeItem('safe_caminata_activa');
         localStorage.removeItem('safe_caminata_id');
 
+        // 3. Notificación secundaria al servidor (aislada para evitar bloqueos)
         try {
             await fetch(`${API_URL}/trayecto/finalizar`, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ cedula: miCedula })
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Usuario-Cedula': miCedula
+                },
+                body: JSON.stringify({ cedula: miCedula, alerta_id: id })
             });
         } catch(e) {
-            console.error("Error al finalizar trayecto en backend", e);
+            console.warn("Aviso: No se pudo notificar /trayecto/finalizar, procediendo con cierre de alerta...", e);
         }
 
+        // 4. Limpiar mapa visualmente
         if (lineaTrayecto && miMapa) {
             miMapa.removeLayer(lineaTrayecto);
             lineaTrayecto = null;
@@ -491,6 +501,7 @@
         limpiarCapasAuxiliares();
         document.getElementById('mapa-trayecto').style.display = 'none';
 
+        // 5. Restablecer interfaz de usuario
         const elemRuta = document.getElementById('contenedor-ruta-segura');
         if (elemRuta && (miRol === 'vecino' || miRol === 'dirigente')) {
             elemRuta.innerHTML = `
@@ -498,9 +509,8 @@
             `;
         }
 
+        // 6. Cambiar estado de la alerta
         await cambiarEstado(id, 'Atendido');
-
-        alert("✅ Reporte finalizado exitosamente.");
     }
 
     async function registrar() {
