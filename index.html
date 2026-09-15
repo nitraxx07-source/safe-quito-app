@@ -118,15 +118,42 @@
             <button class="principal" style="background: #27ae60;" onclick="abrirConfigRuta()">🚶‍♂️ Activar Ruta Segura (Modo Escolta)</button>
         </div>
 
-        <!-- Panel de configuración de Ruta (Oculto inicialmente) -->
+        <!-- Panel de configuración de Ruta y Destino -->
         <div id="panel-config-ruta" class="panel-gestion oculto">
-            <h4>📍 Configurar Destino</h4>
-            <input type="text" id="input-destino" placeholder="Ej: Casa, Calle Principal y Nro">
-            <button class="principal" style="background: #27ae60; padding: 10px;" onclick="iniciarRutaSegura()">EMPEZAR CAMINATA</button>
+            <h4>📍 Configurar Trayecto</h4>
+            
+            <label>Punto de Salida:</label>
+            <div style="display: flex; gap: 5px; margin-bottom: 8px;">
+                <input type="text" id="input-salida" placeholder="Escribe o selecciona en el mapa" style="flex: 1; margin-bottom: 0;">
+                <button type="button" style="background: #2980b9; color: white; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer;" onclick="activarSeleccion('salida')">🗺️ Mapa</button>
+            </div>
+            
+            <label>Punto de Llegada (Destino):</label>
+            <div style="display: flex; gap: 5px; margin-bottom: 8px;">
+                <input type="text" id="input-destino" placeholder="Escribe o selecciona en el mapa" style="flex: 1; margin-bottom: 0;">
+                <button type="button" style="background: #e67e22; color: white; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer;" onclick="activarSeleccion('destino')">🗺️ Mapa</button>
+            </div>
+
+            <!-- Mensaje guía cuando se está seleccionando en el mapa -->
+            <div id="aviso-seleccion-mapa" style="background: #f1c40f; color: #2c3e50; padding: 8px; border-radius: 8px; font-size: 13px; text-align: center; margin-bottom: 10px; display: none;">
+                <b>⚠️ Haz clic en el mapa</b> para fijar el punto.
+            </div>
+
+            <label>Mis Rutas Guardadas:</label>
+            <select id="select-rutas-guardadas" style="width: 100%; padding: 10px; border-radius: 10px; margin-bottom: 10px;" onchange="cargarRutaGuardada()">
+                <option value="">-- Selecciona una ruta guardada --</option>
+            </select>
+
+            <div style="display: flex; gap: 5px; margin-bottom: 10px;">
+                <button class="principal" style="background: #16a085; margin-top:0; font-size:13px; padding:10px;" onclick="guardarRutaActual()">💾 Guardar Ruta</button>
+                <button class="principal" style="background: #2980b9; margin-top:0; font-size:13px; padding:10px;" onclick="usarGpsActualSalida()">📍 GPS Actual</button>
+            </div>
+
+            <button class="principal" style="background: #27ae60; padding: 12px;" onclick="iniciarRutaSegura()">🚀 EMPEZAR CAMINATA</button>
             <button class="btn-logout" style="margin-top: 5px; padding: 8px;" onclick="cerrarConfigRuta()">Cancelar</button>
         </div>
 
-        <!-- Mini Mapa Activo para ver el trayecto -->
+        <!-- Mini Mapa Activo / Selección -->
         <div id="mapa-trayecto"></div>
 
         <!-- Botones para emitir alertas -->
@@ -426,71 +453,178 @@
     let watchID = null;
     let miMapa = null;
     let miMarcador = null;
+    let marcadorSalidaTemp = null;
+    let marcadorDestinoTemp = null;
+    let lineaTrayecto = null;
+    let seleccionandoPunto = null; // 'salida' o 'destino'
 
     function abrirConfigRuta() {
         document.getElementById('panel-config-ruta').classList.remove('oculto');
-    }
-
-    function cerrarConfigRuta() {
-        document.getElementById('panel-config-ruta').classList.add('oculto');
-    }
-
-    async function iniciarRutaSegura() {
-        const destino = document.getElementById('input-destino').value;
-        if (!destino) return alert("Por favor ingresa tu destino.");
-
-        cerrarConfigRuta();
         document.getElementById('mapa-trayecto').style.display = 'block';
+        actualizarSelectRutasGuardadas();
 
-        // Inicializar mapa Leaflet centrado en Quito por defecto mientras toma GPS
         if (!miMapa) {
             miMapa = L.map('mapa-trayecto').setView([-0.1807, -78.4678], 15);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 19,
                 attribution: '© OpenStreetMap'
             }).addTo(miMapa);
-        }
 
-        // Registrar en el backend que el usuario inició su trayecto
+            miMapa.on('click', function(e) {
+                if (!seleccionandoPunto) return;
+
+                const lat = e.latlng.lat;
+                const lng = e.latlng.lng;
+                const coordenadaTexto = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+
+                if (seleccionandoPunto === 'salida') {
+                    document.getElementById('input-salida').value = coordenadaTexto;
+                    if (marcadorSalidaTemp) miMapa.removeLayer(marcadorSalidaTemp);
+                    marcadorSalidaTemp = L.marker([lat, lng]).addTo(miMapa)
+                        .bindPopup("📍 Punto de Salida").openPopup();
+                    alert("✅ Punto de salida seleccionado en el mapa.");
+                } else if (seleccionandoPunto === 'destino') {
+                    document.getElementById('input-destino').value = coordenadaTexto;
+                    if (marcadorDestinoTemp) miMapa.removeLayer(marcadorDestinoTemp);
+                    marcadorDestinoTemp = L.marker([lat, lng], {icon: L.icon({
+                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+                        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                        iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+                    })}).addTo(miMapa).bindPopup("🏁 Punto de Llegada").openPopup();
+                    alert("✅ Punto de llegada seleccionado en el mapa.");
+                }
+
+                seleccionandoPunto = null;
+                document.getElementById('aviso-seleccion-mapa').style.display = 'none';
+            });
+        }
+    }
+
+    function cerrarConfigRuta() {
+        document.getElementById('panel-config-ruta').classList.add('oculto');
+        if (!watchID) {
+            document.getElementById('mapa-trayecto').style.display = 'none';
+        }
+        seleccionandoPunto = null;
+        document.getElementById('aviso-seleccion-mapa').style.display = 'none';
+    }
+
+    function activarSeleccion(tipo) {
+        seleccionandoPunto = tipo;
+        const aviso = document.getElementById('aviso-seleccion-mapa');
+        aviso.style.display = 'block';
+        aviso.innerHTML = `<b>⚠️ Haz clic en el mapa</b> para fijar el punto de <b>${tipo.toUpperCase()}</b>.`;
+    }
+
+    function usarGpsActualSalida() {
+        navigator.geolocation.getCurrentPosition((pos) => {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            document.getElementById('input-salida').value = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+            
+            if (miMapa) {
+                miMapa.setView([lat, lng], 16);
+                if (marcadorSalidaTemp) miMapa.removeLayer(marcadorSalidaTemp);
+                marcadorSalidaTemp = L.marker([lat, lng]).addTo(miMapa).bindPopup("📍 Tu Salida GPS").openPopup();
+            }
+            alert("📍 Salida establecida con tu posición GPS actual.");
+        }, () => alert("No se pudo obtener el GPS."), {enableHighAccuracy: true});
+    }
+
+    function guardarRutaActual() {
+        const salida = document.getElementById('input-salida').value.trim();
+        const destino = document.getElementById('input-destino').value.trim();
+
+        if (!salida || !destino) return alert("Completa la salida y el destino para guardar la ruta.");
+
+        let rutasGuardadas = JSON.parse(localStorage.getItem('safe_rutas_frecuentes')) || [];
+        const existe = rutasGuardadas.some(r => r.salida === salida && r.destino === destino);
+        if (existe) return alert("Esta ruta ya está guardada.");
+
+        rutasGuardadas.push({ salida, destino });
+        localStorage.setItem('safe_rutas_frecuentes', JSON.stringify(rutasGuardadas));
+        alert("⭐ ¡Ruta guardada con éxito para próximos usos!");
+        actualizarSelectRutasGuardadas();
+    }
+
+    function actualizarSelectRutasGuardadas() {
+        const select = document.getElementById('select-rutas-guardadas');
+        let rutasGuardadas = JSON.parse(localStorage.getItem('safe_rutas_frecuentes')) || [];
+        
+        let html = '<option value="">-- Selecciona una ruta guardada --</option>';
+        rutasGuardadas.forEach((r, index) => {
+            html += `<option value="${index}">Salida: ${r.salida} ➔ Destino: ${r.destino}</option>`;
+        });
+        select.innerHTML = html;
+    }
+
+    function cargarRutaGuardada() {
+        const index = document.getElementById('select-rutas-guardadas').value;
+        if (index === "") return;
+
+        let rutasGuardadas = JSON.parse(localStorage.getItem('safe_rutas_frecuentes')) || [];
+        const rutaSeleccionada = rutasGuardadas[index];
+
+        if (rutaSeleccionada) {
+            document.getElementById('input-salida').value = rutaSeleccionada.salida;
+            document.getElementById('input-destino').value = rutaSeleccionada.destino;
+        }
+    }
+
+    async function iniciarRutaSegura() {
+        const salida = document.getElementById('input-salida').value;
+        const destino = document.getElementById('input-destino').value;
+        if (!salida || !destino) return alert("Por favor define tu punto de salida y tu destino.");
+
+        cerrarConfigRuta();
+        document.getElementById('mapa-trayecto').style.display = 'block';
+
         try {
             await fetch(`${API_URL}/trayecto/iniciar`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ cedula: miCedula, destino: destino })
+                body: JSON.stringify({ cedula: miCedula, salida: salida, destino: destino })
             });
-        } catch(e) { console.error("Error al notificar inicio de ruta"); }
+        } catch(e) { console.error("Error al iniciar trayecto en backend"); }
 
-        // Rastrear posición en tiempo real con watchPosition
+        let puntosCoordenadas = [];
+
         watchID = navigator.geolocation.watchPosition(async (pos) => {
             const lat = pos.coords.latitude;
             const lng = pos.coords.longitude;
 
-            // Actualizar marcador en el mapa propio
+            puntosCoordenadas.push([lat, lng]);
+            const miNombre = localStorage.getItem('safe_nombre') || "Vecino";
+
             if (!miMarcador) {
-                miMarcador = L.marker([lat, lng]).addTo(miMapa).bindPopup("¡Voy en camino!").openPopup();
+                miMarcador = L.marker([lat, lng]).addTo(miMapa).bindPopup(`<b>${miNombre}</b><br>Hacia: ${destino}`).openPopup();
             } else {
                 miMarcador.setLatLng([lat, lng]);
             }
             miMapa.setView([lat, lng], 16);
 
-            // Enviar coordenadas al backend de forma ligera
+            if (!lineaTrayecto) {
+                lineaTrayecto = L.polyline(puntosCoordenadas, { color: '#8e44ad', weight: 5, opacity: 0.8 }).addTo(miMapa);
+            } else {
+                lineaTrayecto.setLatLngs(puntosCoordenadas);
+            }
+
             try {
                 await fetch(`${API_URL}/trayecto/actualizar`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ cedula: miCedula, lat: lat, lng: lng })
                 });
-            } catch(e) { console.error("Error actualizando coordenadas"); }
+            } catch(e) {}
 
         }, (err) => {
-            alert("No se pudo obtener la señal GPS.");
+            alert("No se pudo obtener la señal GPS en tiempo real.");
         }, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
 
-        // Cambiar botón temporalmente a "Llegué bien"
         document.getElementById('contenedor-ruta-segura').innerHTML = `
             <button class="principal" style="background: #c0392b;" onclick="finalizarRutaSegura()">✅ Ya llegué bien (Finalizar)</button>
         `;
-        alert("🚀 Ruta segura activada. Tu trayecto está siendo monitoreado.");
+        alert("🚀 Ruta segura activada. Tu caminata está siendo monitoreada.");
     }
 
     async function finalizarRutaSegura() {
@@ -506,6 +640,13 @@
                 body: JSON.stringify({ cedula: miCedula })
             });
         } catch(e) {}
+
+        if (lineaTrayecto && miMapa) {
+            miMapa.removeLayer(lineaTrayecto);
+            lineaTrayecto = null;
+        }
+        if (marcadorSalidaTemp) { miMapa.removeLayer(marcadorSalidaTemp); marcadorSalidaTemp = null; }
+        if (marcadorDestinoTemp) { miMapa.removeLayer(marcadorDestinoTemp); marcadorDestinoTemp = null; }
 
         document.getElementById('mapa-trayecto').style.display = 'none';
         document.getElementById('contenedor-ruta-segura').innerHTML = `
