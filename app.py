@@ -208,14 +208,13 @@ def eliminar_usuario(cedula_objetivo):
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
 
-# 5. OBTENER REPORTES (DISPONIBLE PARA TODOS LOS PERFILES CON TU CONSULTA ORIGINAL)
+# 5. OBTENER REPORTES
 @app.route('/api/v1/reportes', methods=['GET'])
 def obtener_reportes():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Ejecutamos tu misma consulta exacta que ya traía el celular desde la tabla de usuarios
         cur.execute("""
             SELECT 
                 r.id,
@@ -294,6 +293,61 @@ def suscribir():
         return jsonify({"status": "ok"}), 201
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
+
+# 8. RUTAS PARA RUTA SEGURA
+trayectos_activos = {}  # Memoria temporal ultraligera para trayectos
+
+@app.route('/api/v1/trayecto/iniciar', methods=['POST'])
+def iniciar_trayecto():
+    data = request.get_json()
+    cedula = data.get('cedula')
+    destino = data.get('destino')
+    trayectos_activos[cedula] = {'destino': destino, 'lat': None, 'lng': None, 'estado': 'en_camino'}
+    return jsonify({'status': 'ok'})
+
+@app.route('/api/v1/trayecto/actualizar', methods=['POST'])
+def actualizar_trayecto():
+    data = request.get_json()
+    cedula = data.get('cedula')
+    lat = data.get('lat')
+    lng = data.get('lng')
+    if cedula in trayectos_activos:
+        trayectos_activos[cedula]['lat'] = lat
+        trayectos_activos[cedula]['lng'] = lng
+    return jsonify({'status': 'ok'})
+
+@app.route('/api/v1/trayecto/finalizar', methods=['POST'])
+def finalizar_trayecto():
+    data = request.get_json()
+    cedula = data.get('cedula')
+    trayectos_activos.pop(cedula, None)
+    return jsonify({'status': 'ok'})
+
+# 9. RUTAS PARA EL CHAT DE TEXTO POR ALERTA
+chats_alertas = {}  # Estructura temporal: { alerta_id: [ {'remitente': 'Vecino', 'texto': '...'} ] }
+
+@app.route('/api/v1/alerta/<alerta_id>/chat', methods=['GET'])
+def obtener_chat(alerta_id):
+    mensajes = chats_alertas.get(str(alerta_id), [])
+    return jsonify(mensajes)
+
+@app.route('/api/v1/alerta/<alerta_id>/chat', methods=['POST'])
+def enviar_mensaje_chat(alerta_id):
+    data = request.get_json()
+    cedula = data.get('cedula')
+    texto = data.get('texto')
+    
+    alerta_id_str = str(alerta_id)
+    if alerta_id_str not in chats_alertas:
+        chats_alertas[alerta_id_str] = []
+    
+    remitente_formateado = f"Vecino ({cedula[-4:]})" if cedula and len(cedula) >= 4 else "Vecino"
+    
+    chats_alertas[alerta_id_str].append({
+        'remitente': remitente_formateado,
+        'texto': texto
+    })
+    return jsonify({'status': 'ok'})
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
