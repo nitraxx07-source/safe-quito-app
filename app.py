@@ -151,9 +151,13 @@ def reportar():
         # Guardar en base de datos
         cur.execute("""
             INSERT INTO reportes (cedula_vecino, nombre_completo, tipo_alerta, gps, barrio, direccion_exacta, estado)
-            VALUES (%s, %s, %s, %s, %s, %s, %s);
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            RETURNING id;
         """, (cedula, nombre_completo, tipo_alerta, gps, barrio, dir_exacta, "Pendiente"))
         
+        alerta_creada = cur.fetchone()
+        alerta_id = alerta_creada['id'] if alerta_creada else None
+
         conn.commit()
         cur.close()
         conn.close()
@@ -177,6 +181,7 @@ def reportar():
 
         return jsonify({
             "status": "ok",
+            "id": alerta_id,
             "msj": "Alerta enviada",
             "whatsapp_url": wa_link
         }), 200
@@ -208,7 +213,7 @@ def eliminar_usuario(cedula_objetivo):
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
 
-# 5. OBTENER REPORTES
+# 5. OBTENER REPORTES (SOLO ACTIVOS: Pendiente o En transcurso)
 @app.route('/api/v1/reportes', methods=['GET'])
 def obtener_reportes():
     try:
@@ -235,6 +240,7 @@ def obtener_reportes():
                 COALESCE(u.numero_casa, 'S/N') AS numero_casa
             FROM reportes r
             LEFT JOIN usuarios u ON TRIM(r.cedula_vecino::text) = TRIM(u.cedula::text)
+            WHERE r.estado IN ('Pendiente', 'En transcurso')
             ORDER BY r.id DESC;
         """)
         reportes = cur.fetchall()
@@ -245,30 +251,49 @@ def obtener_reportes():
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
 
-# 6. ACTUALIZAR ESTADO
+# 6. ACTUALIZAR ESTADO (PERMITIDO A ADMIN, DIRIGENTE, POLICIA O AL DUEÑO DE LA ALERTA)
 @app.route('/api/v1/reportes/<int:id_reporte>', methods=['PUT'])
 def actualizar_estado(id_reporte):
-    datos = request.json
+    datos = request.json or {}
     nuevo_estado = datos.get('estado')
     user_cedula = str(request.headers.get('X-Usuario-Cedula', '')).strip()
+
+    if not nuevo_estado:
+        return jsonify({"status": "error", "msj": "Estado no proporcionado"}), 400
 
     try:
         conn = get_db_connection()
         cur = conn.cursor()
+
+        # 1. Obtener la alerta para saber quién es el creador
+        cur.execute("SELECT TRIM(cedula_vecino::text) AS cedula_vecino FROM reportes WHERE id = %s;", (id_reporte,))
+        reporte = cur.fetchone()
+
+        if not reporte:
+            cur.close()
+            conn.close()
+            return jsonify({"status": "error", "msj": "Alerta no encontrada"}), 404
+
+        # 2. Obtener el rol del usuario que realiza la petición
         cur.execute("SELECT rol FROM usuarios WHERE TRIM(cedula::text) = %s;", (user_cedula,))
         user_info = cur.fetchone()
         rol = user_info['rol'] if user_info else 'vecino'
 
-        if rol in ['admin', 'dirigente', 'policia']:
+        es_dueno = (reporte['cedula_vecino'] == user_cedula)
+        es_autorizado = rol in ['admin', 'dirigente', 'policia', 'superadmin']
+
+        # 3. Validar permisos (Dueño de la alerta O un Admin/Dirigente)
+        if es_dueno or es_autorizado:
             cur.execute("UPDATE reportes SET estado = %s WHERE id = %s;", (nuevo_estado, id_reporte))
             conn.commit()
             cur.close()
             conn.close()
-            return jsonify({"status": "ok"}), 200
-        
+            return jsonify({"status": "ok", "msj": "Estado actualizado correctamente"}), 200
+
         cur.close()
         conn.close()
-        return jsonify({"status": "error", "msj": "No autorizado"}), 403
+        return jsonify({"status": "error", "msj": "No autorizado para modificar esta alerta"}), 403
+
     except Exception as e:
         return jsonify({"status": "error", "msj": str(e)}), 500
 
