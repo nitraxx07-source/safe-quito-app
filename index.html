@@ -567,28 +567,43 @@
     }
 
     async function registrar() {
-        if (!document.getElementById('reg-terminos').checked) return alert("Acepta los términos.");
+        const aceptoTerminos = document.getElementById('reg-terminos').checked;
+        if (!aceptoTerminos) {
+            return alert("Debe aceptar la Política de Privacidad y Términos conforme a la LOPDP para continuar.");
+        }
+
         const datos = {
-            cedula: document.getElementById('reg-cedula').value,
-            nombres: document.getElementById('reg-nombres').value,
-            apellidos: document.getElementById('reg-apellidos').value,
-            correo: document.getElementById('reg-correo').value,
-            celular: document.getElementById('reg-celular').value,
-            barrio: document.getElementById('reg-barrio').value,
-            calle_principal: document.getElementById('reg-principal').value,
-            calle_secundaria: document.getElementById('reg-secundaria').value,
-            numero_casa: document.getElementById('reg-casa').value,
-            password: document.getElementById('reg-pass').value
+            cedula: document.getElementById('reg-cedula').value.trim(),
+            nombres: document.getElementById('reg-nombres').value.trim(),
+            apellidos: document.getElementById('reg-apellidos').value.trim(),
+            correo: document.getElementById('reg-correo').value.trim(),
+            celular: document.getElementById('reg-celular').value.trim(),
+            barrio: document.getElementById('reg-barrio').value.trim(),
+            calle_principal: document.getElementById('reg-principal').value.trim(),
+            calle_secundaria: document.getElementById('reg-secundaria').value.trim(),
+            numero_casa: document.getElementById('reg-casa').value.trim(),
+            password: document.getElementById('reg-pass').value,
+            acepto_terminos: aceptoTerminos // 👈 Se envía la confirmación explícita al servidor Flask
         };
+
         try {
             const res = await fetch(`${API_URL}/registrar`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(datos)
             });
-            if (res.ok) { alert("¡Registro exitoso!"); mostrarLogin(); }
-            else { alert("Error al registrar."); }
-        } catch(e) { alert("Error de red"); }
+
+            const data = await res.json().catch(() => ({}));
+
+            if (res.ok) { 
+                alert("¡Registro exitoso! Tus datos han sido procesados conforme a la LOPDP."); 
+                mostrarLogin(); 
+            } else { 
+                alert("Error al registrar: " + (data.msj || "Verifique los datos ingresados.")); 
+            }
+        } catch(e) { 
+            alert("Error de red o conexión con el servidor."); 
+        }
     }
 
     async function enviarAlerta(tipo) {
