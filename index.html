@@ -349,8 +349,6 @@
                 fechaLimpia = fechaLimpia.replace(' ', 'T');
             }
             
-            // Si el servidor envía la hora local de la base de datos sin indicador de zona,
-            // la interpretamos de forma limpia asegurando el reloj exacto en Ecuador.
             let fecha = new Date(fechaLimpia);
             if (isNaN(fecha.getTime())) {
                 fecha = new Date(fechaLimpia + 'Z');
@@ -957,7 +955,6 @@
             const gpsStr = `${lat},${lng}`;
 
             try {
-                // Única llamada al backend para iniciar la ruta segura (el backend ya se encarga de crear el registro de alerta único para todos)
                 const res = await fetch(`${API_URL}/trayecto/iniciar`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
