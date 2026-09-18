@@ -336,13 +336,16 @@
         setInterval(cargarReportes, 10000);
     }
 
-    // Función segura para formatear la hora forzando la zona horaria de Ecuador (America/Guayaquil)
+    // Función corregida para limpiar microsegundos y mostrar la hora local exacta de Ecuador
     function formatearFechaHora(fechaStr) {
         if (!fechaStr) return 'Fecha desc.';
         try {
             let fechaLimpia = fechaStr.trim();
-            if (fechaLimpia.includes(' ') && !fechaLimpia.includes('T') && !fechaLimpia.endsWith('Z')) {
-                // Si viene como "YYYY-MM-DD HH:mm:ss" sin indicador UTC, le agregamos 'Z' o manejamos como UTC exacto del servidor
+            
+            // Limpiar milisegundos / microsegundos excesivos (ej: .218163+00)
+            if (fechaLimpia.includes('.')) {
+                fechaLimpia = fechaLimpia.split('.')[0] + 'Z';
+            } else if (fechaLimpia.includes(' ') && !fechaLimpia.endsWith('Z')) {
                 fechaLimpia = fechaLimpia.replace(' ', 'T') + 'Z';
             } else if (fechaLimpia.includes(' ')) {
                 fechaLimpia = fechaLimpia.replace(' ', 'T');
@@ -391,7 +394,15 @@
                 const nombreCompleto = r.nombre_completo || 'Vecino';
                 const cedulaVecino = r.cedula || r.cedula_vecino || 'S/N';
                 const celularVecino = r.celular || 'Sin número';
-                const direccionVecino = r.direccion_exacta || 'Dirección no especificada';
+                
+                // Corrección de dirección para evitar mostrar coordenadas crudas o "Hacia: [lat,lng]"
+                let direccionVecino = r.direccion_exacta || 'Dirección no especificada';
+                if ((direccionVecino.includes(',') && (direccionVecino.includes('-') || direccionVecino.length < 25)) || direccionVecino.startsWith('Hacia:')) {
+                    direccionVecino = r.tipo_alerta === 'Ruta Segura' || r.tipo_alerta === 'CAMINATA_SEGURA' 
+                        ? 'Trayecto de Ruta Segura Activo' 
+                        : 'Ubicación GPS en tiempo real';
+                }
+
                 const coordsReal = r.gps || ''; 
                 const origenGps = r.origen_gps || '';
                 const destinoGps = r.destino_gps || '';
@@ -416,12 +427,13 @@
                 const urlCompartirWS = `https://api.whatsapp.com/send?text=${mensajeWS}`;
                 const fechaHoraLegible = formatearFechaHora(r.created_at);
 
-                // Cálculo exacto del timestamp en milisegundos para evitar reinicios al reabrir la app
                 let timestampCreacion = r.created_at_ms;
                 if (!timestampCreacion) {
                     try {
                         let fechaLimpia = r.created_at.trim();
-                        if (fechaLimpia.includes(' ') && !fechaLimpia.endsWith('Z')) {
+                        if (fechaLimpia.includes('.')) {
+                            fechaLimpia = fechaLimpia.split('.')[0] + 'Z';
+                        } else if (fechaLimpia.includes(' ') && !fechaLimpia.endsWith('Z')) {
                             fechaLimpia = fechaLimpia.replace(' ', 'T') + 'Z';
                         } else {
                             fechaLimpia = fechaLimpia.replace(' ', 'T');
@@ -492,7 +504,6 @@
         }
     }
 
-    // El contador calcula el tiempo real transcurrido usando el timestamp exacto
     function iniciarContadorEsquina() {
         setInterval(() => {
             const contadores = document.querySelectorAll('.contador-esquina');
@@ -965,6 +976,10 @@
                         localStorage.setItem('safe_caminata_id', data.id);
                         miAlertaCaminataId = data.id;
                     }
+                    
+                    // 🔔 Notificación visual de confirmación para Ruta Segura
+                    alert("🟢 ¡Ruta Segura activada con éxito! Tus vecinos y el sistema están monitoreando tu trayecto.");
+
                     iniciarWatchGPS(salida, destino);
                     cargarReportes();
                 } else {
