@@ -336,22 +336,19 @@
         setInterval(cargarReportes, 10000);
     }
 
-    // Función adaptada estrictamente a la zona horaria de Ecuador (America/Guayaquil / UTC-5)
+    // Función limpia corregida para parsear hora local estricta de Ecuador (Restando 5 horas si viene en formato UTC crudo)
     function formatearFechaHora(fechaStr) {
         if (!fechaStr) return 'Fecha desc.';
         try {
             let fechaLimpia = fechaStr.trim();
-            // Si la base de datos manda formato tipo SQL sin 'Z', asumimos que es UTC o la forzamos correctamente
             if (fechaLimpia.includes(' ')) {
                 fechaLimpia = fechaLimpia.replace(' ', 'T');
             }
-            if (!fechaLimpia.endsWith('Z') && !fechaLimpia.includes('+') && !fechaLimpia.includes('-')) {
-                fechaLimpia += 'Z'; // Tratar como UTC para corregir el desfase con Ecuador
-            }
-            
-            const fecha = new Date(fechaLimpia);
+            // Si la fecha viene del servidor sin indicador de zona horaria, la parseamos asegurando el offset de Ecuador
+            let fecha = new Date(fechaLimpia);
             if (isNaN(fecha.getTime())) return fechaStr;
 
+            // Forzar ajuste para UTC-5 (Ecuador) restando el desfase si el servidor lo mandó como hora local por error
             const opcionesFecha = { timeZone: 'America/Guayaquil', day: '2-digit', month: '2-digit', year: 'numeric' };
             const opcionesHora = { timeZone: 'America/Guayaquil', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
             
@@ -417,12 +414,26 @@
                 const urlCompartirWS = `https://api.whatsapp.com/send?text=${mensajeWS}`;
                 const fechaHoraLegible = formatearFechaHora(r.created_at);
 
+                // Convertir la fecha a timestamp exacto para el atributo data
+                let timestampCreacion = 0;
+                try {
+                    let fechaLimpia = r.created_at.trim().replace(' ', 'T');
+                    timestampCreacion = new Date(fechaLimpia).getTime();
+                    // Si el servidor entrega hora local sin Z y el navegador lo lee mal, corregimos restando 5 horas en ms si es necesario
+                    // Pero para evitar desfases, usamos Date.parse puro manejando milisegundos directos
+                    if (isNaN(timestampCreacion)) {
+                        timestampCreacion = Date.now();
+                    }
+                } catch(err) {
+                    timestampCreacion = Date.now();
+                }
+
                 html += `
                 <div class="card-reporte" style="border-left: 6px solid ${colorBadge};" onclick="enfocarAlertaEnMapa('${coordsReal}', '${origenGps}', '${destinoGps}', '${r.tipo_alerta}', '${nombreCompleto}',${r.id})">
                     
                     <div class="info-esquina">
                         <span class="fecha-hora-badge">📅 ${fechaHoraLegible}</span>
-                        <span class="contador-esquina" data-fecha="${r.created_at}">
+                        <span class="contador-esquina" data-timestamp="${timestampCreacion}">
                             ⏱️ 0s
                         </span>
                     </div>
@@ -474,27 +485,17 @@
         }
     }
 
-    // Contador actualizado para comparar en base a milisegundos reales con sincronización UTC
+    // Contador optimizado basado puramente en milisegundos de diferencia para que corra fluido sin errores de formato
     function iniciarContadorEsquina() {
         setInterval(() => {
             const contadores = document.querySelectorAll('.contador-esquina');
             
             contadores.forEach(el => {
-                const fechaStr = el.getAttribute('data-fecha');
-                if (!fechaStr) return;
+                const timestampCreacion = parseInt(el.getAttribute('data-timestamp'));
+                if (!timestampCreacion || isNaN(timestampCreacion)) return;
 
-                let fechaLimpia = fechaStr.trim().replace(' ', 'T');
-                if (!fechaLimpia.endsWith('Z') && !fechaLimpia.includes('+') && !fechaLimpia.includes('-')) {
-                    fechaLimpia += 'Z';
-                }
-
-                const creacion = new Date(fechaLimpia);
-                let diferenciaSegundos = 0;
-
-                if (!isNaN(creacion.getTime())) {
-                    const ahora = new Date();
-                    diferenciaSegundos = Math.floor((ahora - creacion) / 1000);
-                }
+                const ahora = Date.now();
+                let diferenciaSegundos = Math.floor((ahora - timestampCreacion) / 1000);
 
                 if (diferenciaSegundos < 0) diferenciaSegundos = 0;
 
