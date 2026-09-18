@@ -67,7 +67,7 @@ def disparar_notificaciones_push(tipo, barrio):
         if conn:
             conn.close()
 
-# 1. LOGIN (Verifica si el usuario tiene una Ruta Segura activa y la devuelve para la PWA)
+# 1. LOGIN
 @app.route('/api/v1/login', methods=['POST'])
 def login():
     datos = request.json or {}
@@ -85,7 +85,6 @@ def login():
         usuario = cur.fetchone()
 
         if usuario and bcrypt.check_password_hash(usuario['password'], password):
-            # Buscar si este usuario tiene un trayecto de Ruta Segura pendiente/en transcurso
             cur.execute("""
                 SELECT id FROM reportes 
                 WHERE TRIM(cedula_vecino::text) = %s AND tipo_alerta = 'Ruta Segura' AND estado = 'En transcurso'
@@ -101,7 +100,7 @@ def login():
                 "nombre": f"{usuario['nombres']} {usuario['apellidos']}".strip(),
                 "barrio": usuario['barrio'],
                 "rol": usuario.get('rol', 'vecino'),
-                "alerta_id_activo": alerta_id_activo # Devuelve la ruta activa si existía
+                "alerta_id_activo": alerta_id_activo
             }), 200
         else:
             if cur:
@@ -113,7 +112,7 @@ def login():
         if conn:
             conn.close()
 
-# 2. REGISTRO (CON CUMPLIMIENTO LOPDP ECUADOR)
+# 2. REGISTRO
 @app.route('/api/v1/registrar', methods=['POST'])
 def registrar():
     datos = request.json or {}
@@ -153,7 +152,7 @@ def registrar():
         if conn:
             conn.close()
 
-# 3. REPORTAR ALERTA CON ENLACE DIRECTO A WHATSAPP
+# 3. REPORTAR ALERTA
 @app.route('/api/v1/reportar', methods=['POST'])
 def reportar():
     datos = request.json or {}
@@ -218,7 +217,7 @@ def reportar():
         if conn:
             conn.close()
 
-# 4. ELIMINAR USUARIO (LOPDP)
+# 4. ELIMINAR USUARIO
 @app.route('/api/v1/usuarios/<cedula_objetivo>', methods=['DELETE'])
 def eliminar_usuario(cedula_objetivo):
     admin_cedula = str(request.headers.get('X-Admin-Cedula') or request.headers.get('X-Usuario-Cedula', '')).strip()
@@ -263,6 +262,7 @@ def obtener_reportes():
                 r.tipo_alerta,
                 r.estado,
                 r.gps,
+                r.fecha,
                 COALESCE(r.barrio, u.barrio) AS barrio,
                 COALESCE(NULLIF(r.nombre_completo, ''), u.nombres || ' ' || u.apellidos, 'Vecino') AS nombre_completo,
                 TRIM(r.cedula_vecino::text) AS cedula_vecino,
@@ -399,6 +399,9 @@ def iniciar_trayecto():
 
         conn.commit()
         cur.close()
+
+        # Dispara la notificación push a todos los vecinos registrados
+        disparar_notificaciones_push('Ruta Segura', barrio)
 
         trayectos_activos[cedula] = {
             'id_reporte': alerta_id,
