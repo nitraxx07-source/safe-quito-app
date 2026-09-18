@@ -978,6 +978,10 @@
                         miAlertaCaminataId = data.id;
                     }
                     
+                    // CORRECCIÓN DEL PUSH DE RUTA SEGURA: Inicializar y resetear array con el punto actual
+                    puntosCoordenadas = [[lat, lng]];
+                    localStorage.setItem('safe_caminata_puntos', JSON.stringify(puntosCoordenadas));
+                    
                     alert("🟢 ¡Ruta Segura activada con éxito!");
 
                     iniciarWatchGPS(salida, destino);
@@ -1030,8 +1034,12 @@
             const lat = pos.coords.latitude;
             const lng = pos.coords.longitude;
 
-            puntosCoordenadas.push([lat, lng]);
-            localStorage.setItem('safe_caminata_puntos', JSON.stringify(puntosCoordenadas));
+            // CORRECCIÓN DEL PUSH DE RUTA SEGURA: Evitar duplicados consecutivos y hacer push correcto
+            const ultimo = puntosCoordenadas[puntosCoordenadas.length - 1];
+            if (!ultimo || ultimo[0] !== lat || ultimo[1] !== lng) {
+                puntosCoordenadas.push([lat, lng]);
+                localStorage.setItem('safe_caminata_puntos', JSON.stringify(puntosCoordenadas));
+            }
 
             if (!miMarcador) {
                 miMarcador = L.marker([lat, lng]).addTo(miMapa).bindPopup(`<b>${miNombre}</b><br>Ruta Segura`).openPopup();
