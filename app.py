@@ -249,7 +249,7 @@ def eliminar_usuario(cedula_objetivo):
         if conn:
             conn.close()
 
-# 5. OBTENER REPORTES
+# 5. OBTENER REPORTES (Libre de restricciones estrictas para evitar listas vacías)
 @app.route('/api/v1/reportes', methods=['GET'])
 def obtener_reportes():
     conn = None
@@ -400,7 +400,6 @@ def iniciar_trayecto():
         conn.commit()
         cur.close()
 
-        # Dispara la notificación push a todos los vecinos registrados
         disparar_notificaciones_push('Ruta Segura', barrio)
 
         trayectos_activos[cedula] = {
