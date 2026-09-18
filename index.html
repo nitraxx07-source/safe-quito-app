@@ -410,7 +410,9 @@
                 );
                 const urlCompartirWS = `https://api.whatsapp.com/send?text=${mensajeWS}`;
 
-                const fechaHoraLegible = formatearFechaHora(r.fecha);
+                <span class="contador-esquina" data-fecha="${r.created_at}">
+    ⏱️ 0s
+</span>
 
                 html += `
                 <div class="card-reporte" style="border-left: 6px solid ${colorBadge};" onclick="enfocarAlertaEnMapa('${coordsReal}', '${origenGps}', '${destinoGps}', '${r.tipo_alerta}', '${nombreCompleto}', ${r.id})">
