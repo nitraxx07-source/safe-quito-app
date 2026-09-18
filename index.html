@@ -338,13 +338,13 @@
         setInterval(cargarReportes, 10000);
     }
 
-    // Función auxiliar para formatear la fecha y hora de la base de datos de manera legible
+    // Función auxiliar corregida para limpiar microsegundos y zona horaria de la BD
     function formatearFechaHora(fechaStr) {
         if (!fechaStr) return 'Fecha desc.';
         try {
-            const fechaLimpia = fechaStr.replace(' ', 'T');
+            let fechaLimpia = fechaStr.split('.')[0].replace(' ', 'T');
             const fecha = new Date(fechaLimpia);
-            if (isNaN(fecha.getTime())) return fechaStr; // Si no es fecha válida, devuelve el string original
+            if (isNaN(fecha.getTime())) return fechaStr;
 
             const opcionesFecha = { day: '2-digit', month: '2-digit', year: 'numeric' };
             const opcionesHora = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
@@ -469,7 +469,7 @@
         }
     }
 
-    // Función que actualiza el contador segundo a segundo en cada tarjeta activa
+    // Función que actualiza el contador segundo a segundo limpiando también la fecha correctamente
     function iniciarContadorEsquina() {
         setInterval(() => {
             const contadores = document.querySelectorAll('.contador-esquina');
@@ -478,7 +478,7 @@
                 const fechaStr = el.getAttribute('data-fecha');
                 if (!fechaStr) return;
 
-                const fechaLimpia = fechaStr.replace(' ', 'T');
+                let fechaLimpia = fechaStr.split('.')[0].replace(' ', 'T');
                 const creacion = new Date(fechaLimpia);
                 const ahora = new Date();
 
