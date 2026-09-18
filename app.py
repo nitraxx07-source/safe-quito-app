@@ -249,7 +249,7 @@ def eliminar_usuario(cedula_objetivo):
         if conn:
             conn.close()
 
-# 5. OBTENER REPORTES (CORREGIDO CON r.created_at)
+# 5. OBTENER REPORTES
 @app.route('/api/v1/reportes', methods=['GET'])
 def obtener_reportes():
     conn = None
@@ -262,7 +262,7 @@ def obtener_reportes():
                 r.tipo_alerta,
                 r.estado,
                 r.gps,
-                r.created_at,
+                r.created_at::text AS created_at,
                 COALESCE(r.barrio, u.barrio) AS barrio,
                 COALESCE(NULLIF(r.nombre_completo, ''), u.nombres || ' ' || u.apellidos, 'Vecino') AS nombre_completo,
                 TRIM(r.cedula_vecino::text) AS cedula_vecino,
