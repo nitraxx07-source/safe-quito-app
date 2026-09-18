@@ -336,22 +336,25 @@
         setInterval(cargarReportes, 10000);
     }
 
-    // Corrección definitiva para la hora local exacta de Ecuador y limpieza de microsegundos/desfase UTC
+    // Corrección definitiva para interpretar timestamps y evitar desfases de zona horaria
     function formatearFechaHora(fechaStr) {
         if (!fechaStr) return 'Fecha desc.';
         try {
             let fechaLimpia = fechaStr.trim();
             
-            // Limpieza de formato estándar SQL / ISO
             if (fechaLimpia.includes('.')) {
-                fechaLimpia = fechaLimpia.split('.')[0] + 'Z';
-            } else if (fechaLimpia.includes(' ') && !fechaLimpia.endsWith('Z') && !fechaLimpia.includes('+')) {
-                fechaLimpia = fechaLimpia.replace(' ', 'T') + 'Z';
-            } else if (fechaLimpia.includes(' ')) {
+                fechaLimpia = fechaLimpia.split('.')[0];
+            }
+            if (fechaLimpia.includes(' ') && !fechaLimpia.endsWith('Z') && !fechaLimpia.includes('+')) {
                 fechaLimpia = fechaLimpia.replace(' ', 'T');
             }
             
+            // Si el servidor envía la hora local de la base de datos sin indicador de zona,
+            // la interpretamos de forma limpia asegurando el reloj exacto en Ecuador.
             let fecha = new Date(fechaLimpia);
+            if (isNaN(fecha.getTime())) {
+                fecha = new Date(fechaLimpia + 'Z');
+            }
             if (isNaN(fecha.getTime())) return fechaStr;
 
             const opcionesFecha = { timeZone: 'America/Guayaquil', day: '2-digit', month: '2-digit', year: 'numeric' };
@@ -429,13 +432,16 @@
                 let timestampCreacion = r.created_at_ms;
                 if (!timestampCreacion) {
                     try {
-                        let fechaLimpia = r.created_at.trim();
+                        let fechaLimpia = (r.created_at || '').trim();
+                        if (fechaLimpia.includes('.')) fechaLimpia = fechaLimpia.split('.')[0];
                         if (fechaLimpia.includes(' ') && !fechaLimpia.endsWith('Z') && !fechaLimpia.includes('+')) {
-                            fechaLimpia = fechaLimpia.replace(' ', 'T') + 'Z';
-                        } else if (fechaLimpia.includes('.')) {
-                            fechaLimpia = fechaLimpia.split('.')[0] + 'Z';
+                            fechaLimpia = fechaLimpia.replace(' ', 'T');
                         }
-                        timestampCreacion = new Date(fechaLimpia).getTime();
+                        let parsedDate = new Date(fechaLimpia);
+                        if (isNaN(parsedDate.getTime())) {
+                            parsedDate = new Date(fechaLimpia + 'Z');
+                        }
+                        timestampCreacion = parsedDate.getTime();
                         if (isNaN(timestampCreacion)) {
                             timestampCreacion = Date.now();
                         }
@@ -951,7 +957,7 @@
             const gpsStr = `${lat},${lng}`;
 
             try {
-                // 1. Iniciar la ruta segura en el backend
+                // Única llamada al backend para iniciar la ruta segura (el backend ya se encarga de crear el registro de alerta único para todos)
                 const res = await fetch(`${API_URL}/trayecto/iniciar`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -966,21 +972,6 @@
                 const data = await res.json();
 
                 if (res.ok) {
-                    // 2. Disparar también el reporte general para que aparezca en el panel de todos los vecinos con notificación
-                    try {
-                        await fetch(`${API_URL}/reportar`, {
-                            method: 'POST',
-                            headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({
-                                cedula: miCedula, 
-                                tipo: 'Ruta Segura', 
-                                gps: gpsStr
-                            })
-                        });
-                    } catch(err) {
-                        console.error("Error al reportar difusión de ruta segura", err);
-                    }
-
                     localStorage.setItem('safe_caminata_activa', 'true');
                     localStorage.setItem('safe_caminata_salida', salida);
                     localStorage.setItem('safe_caminata_destino', destino);
@@ -990,7 +981,7 @@
                         miAlertaCaminataId = data.id;
                     }
                     
-                    alert("🟢 ¡Ruta Segura activada y notificada a los vecinos con éxito!");
+                    alert("🟢 ¡Ruta Segura activada con éxito!");
 
                     iniciarWatchGPS(salida, destino);
                     cargarReportes();
