@@ -55,21 +55,38 @@
         .btn-accidente { background: #3498db; border-bottom: 5px solid #2980b9; }
 
         .panel-gestion { margin-top: 25px; text-align: left; background: var(--gris-suave); padding: 15px; border-radius: 20px; border: 1px solid #ddd; }
-        .card-reporte { background: white; padding: 12px; border-radius: 12px; margin-bottom: 10px; border-left: 6px solid var(--azul-oscuro); font-size: 13px; position: relative; box-shadow: 0 2px 5px rgba(0,0,0,0.08); cursor: pointer; transition: background 0.2s; }
+        .card-reporte { background: white; padding: 14px 12px 12px 12px; border-radius: 12px; margin-bottom: 12px; border-left: 6px solid var(--azul-oscuro); font-size: 13px; position: relative; box-shadow: 0 2px 5px rgba(0,0,0,0.08); cursor: pointer; transition: background 0.2s; }
         .card-reporte:hover { background: #fdfdfd; }
         
-        /* Estilo del contador en la esquina superior derecha de la tarjeta */
-        .contador-esquina {
+        /* Contenedor de la esquina superior derecha (Fecha/Hora y Contador) */
+        .info-esquina {
             position: absolute;
-            top: 12px;
-            right: 15px;
+            top: 10px;
+            right: 12px;
+            text-align: right;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .fecha-hora-badge {
+            font-size: 10px;
+            color: #555;
+            font-weight: 600;
+            background: #eef2f7;
+            padding: 2px 6px;
+            border-radius: 6px;
+        }
+
+        .contador-esquina {
             background: var(--rojo-alerta);
             color: white;
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 11px;
+            padding: 3px 6px;
+            border-radius: 10px;
+            font-size: 10px;
             font-weight: bold;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            text-align: center;
         }
 
         button.principal { width: 100%; padding: 16px; background: var(--azul-oscuro); color: white; border: none; border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer; margin-top: 10px; display: flex; align-items: center; justify-content: center; }
@@ -321,6 +338,26 @@
         setInterval(cargarReportes, 10000);
     }
 
+    // Función auxiliar para formatear la fecha y hora de la base de datos de manera legible
+    function formatearFechaHora(fechaStr) {
+        if (!fechaStr) return 'Fecha desc.';
+        try {
+            const fechaLimpia = fechaStr.replace(' ', 'T');
+            const fecha = new Date(fechaLimpia);
+            if (isNaN(fecha.getTime())) return fechaStr; // Si no es fecha válida, devuelve el string original
+
+            const opcionesFecha = { day: '2-digit', month: '2-digit', year: 'numeric' };
+            const opcionesHora = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
+            
+            const fechaFormateada = fecha.toLocaleDateString('es-EC', opcionesFecha);
+            const horaFormateada = fecha.toLocaleTimeString('es-EC', opcionesHora);
+
+            return `${fechaFormateada} - ${horaFormateada}`;
+        } catch(e) {
+            return fechaStr;
+        }
+    }
+
     async function cargarReportes() {
         try {
             const res = await fetch(`${API_URL}/reportes`, { 
@@ -357,7 +394,6 @@
                 
                 const esEnCurso = r.estado === 'En transcurso';
                 const esCaminata = r.tipo_alerta === 'Ruta Segura' || r.tipo_alerta === 'CAMINATA_SEGURA';
-                const textoBadge = esCaminata ? 'CAMINATA' : (esEnCurso ? 'EN CURSO' : 'PENDIENTE');
                 const colorBadge = esCaminata ? '#8e44ad' : (esEnCurso ? '#2980b9' : '#e74c3c');
 
                 const esAutorizado = (miRol === 'admin' || miRol === 'dirigente' || miRol === 'policia');
@@ -374,14 +410,20 @@
                 );
                 const urlCompartirWS = `https://api.whatsapp.com/send?text=${mensajeWS}`;
 
+                const fechaHoraLegible = formatearFechaHora(r.fecha);
+
                 html += `
                 <div class="card-reporte" style="border-left: 6px solid ${colorBadge};" onclick="enfocarAlertaEnMapa('${coordsReal}', '${origenGps}', '${destinoGps}', '${r.tipo_alerta}', '${nombreCompleto}', ${r.id})">
-                    <!-- CONTADOR EN LA ESQUINA SUPERIOR DERECHA -->
-                    <span class="contador-esquina" data-fecha="${r.fecha}">
-                        ⏱️ 0s
-                    </span>
+                    
+                    <!-- INFORMACIÓN EN LA ESQUINA SUPERIOR DERECHA (Fecha/Hora y Contador de tiempo) -->
+                    <div class="info-esquina">
+                        <span class="fecha-hora-badge">📅 ${fechaHoraLegible}</span>
+                        <span class="contador-esquina" data-fecha="${r.fecha}">
+                            ⏱️ 0s
+                        </span>
+                    </div>
 
-                    <h3 style="margin: 0 0 8px 0; color: var(--azul-oscuro); font-size: 15px; text-transform:uppercase;">${r.tipo_alerta}</h3>
+                    <h3 style="margin: 0 0 8px 0; color: var(--azul-oscuro); font-size: 15px; text-transform:uppercase; padding-right: 120px;">${r.tipo_alerta}</h3>
                     
                     <div style="font-size: 12px; line-height: 1.6; color: #333; text-align:left;">
                         <b>👤 Emitida por:</b> ${nombreCompleto} <br>
