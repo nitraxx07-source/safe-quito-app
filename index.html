@@ -58,7 +58,6 @@
         .card-reporte { background: white; padding: 14px 12px 12px 12px; border-radius: 12px; margin-bottom: 12px; border-left: 6px solid var(--azul-oscuro); font-size: 13px; position: relative; box-shadow: 0 2px 5px rgba(0,0,0,0.08); cursor: pointer; transition: background 0.2s; }
         .card-reporte:hover { background: #fdfdfd; }
         
-        /* Contenedor de la esquina superior derecha (Fecha/Hora y Contador) */
         .info-esquina {
             position: absolute;
             top: 10px;
@@ -264,7 +263,6 @@
             }
         }
         
-        // Iniciar el reloj de los contadores en las tarjetas de alerta segundo a segundo
         iniciarContadorEsquina();
     };
 
@@ -338,16 +336,24 @@
         setInterval(cargarReportes, 10000);
     }
 
-    // Función auxiliar corregida para limpiar microsegundos y zona horaria de la BD
+    // Función adaptada estrictamente a la zona horaria de Ecuador (America/Guayaquil / UTC-5)
     function formatearFechaHora(fechaStr) {
         if (!fechaStr) return 'Fecha desc.';
         try {
-            let fechaLimpia = fechaStr.split('.')[0].replace(' ', 'T');
+            let fechaLimpia = fechaStr.trim();
+            // Si la base de datos manda formato tipo SQL sin 'Z', asumimos que es UTC o la forzamos correctamente
+            if (fechaLimpia.includes(' ')) {
+                fechaLimpia = fechaLimpia.replace(' ', 'T');
+            }
+            if (!fechaLimpia.endsWith('Z') && !fechaLimpia.includes('+') && !fechaLimpia.includes('-')) {
+                fechaLimpia += 'Z'; // Tratar como UTC para corregir el desfase con Ecuador
+            }
+            
             const fecha = new Date(fechaLimpia);
             if (isNaN(fecha.getTime())) return fechaStr;
 
-            const opcionesFecha = { day: '2-digit', month: '2-digit', year: 'numeric' };
-            const opcionesHora = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
+            const opcionesFecha = { timeZone: 'America/Guayaquil', day: '2-digit', month: '2-digit', year: 'numeric' };
+            const opcionesHora = { timeZone: 'America/Guayaquil', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
             
             const fechaFormateada = fecha.toLocaleDateString('es-EC', opcionesFecha);
             const horaFormateada = fecha.toLocaleTimeString('es-EC', opcionesHora);
@@ -414,7 +420,6 @@
                 html += `
                 <div class="card-reporte" style="border-left: 6px solid ${colorBadge};" onclick="enfocarAlertaEnMapa('${coordsReal}', '${origenGps}', '${destinoGps}', '${r.tipo_alerta}', '${nombreCompleto}',${r.id})">
                     
-                    <!-- INFORMACIÓN EN LA ESQUINA SUPERIOR DERECHA -->
                     <div class="info-esquina">
                         <span class="fecha-hora-badge">📅 ${fechaHoraLegible}</span>
                         <span class="contador-esquina" data-fecha="${r.created_at}">
@@ -469,7 +474,7 @@
         }
     }
 
-    // Función que actualiza el contador segundo a segundo limpiando también la fecha correctamente
+    // Contador actualizado para comparar en base a milisegundos reales con sincronización UTC
     function iniciarContadorEsquina() {
         setInterval(() => {
             const contadores = document.querySelectorAll('.contador-esquina');
@@ -478,11 +483,19 @@
                 const fechaStr = el.getAttribute('data-fecha');
                 if (!fechaStr) return;
 
-                let fechaLimpia = fechaStr.split('.')[0].replace(' ', 'T');
-                const creacion = new Date(fechaLimpia);
-                const ahora = new Date();
+                let fechaLimpia = fechaStr.trim().replace(' ', 'T');
+                if (!fechaLimpia.endsWith('Z') && !fechaLimpia.includes('+') && !fechaLimpia.includes('-')) {
+                    fechaLimpia += 'Z';
+                }
 
-                let diferenciaSegundos = Math.floor((ahora - creacion) / 1000);
+                const creacion = new Date(fechaLimpia);
+                let diferenciaSegundos = 0;
+
+                if (!isNaN(creacion.getTime())) {
+                    const ahora = new Date();
+                    diferenciaSegundos = Math.floor((ahora - creacion) / 1000);
+                }
+
                 if (diferenciaSegundos < 0) diferenciaSegundos = 0;
 
                 const horas = Math.floor(diferenciaSegundos / 3600);
