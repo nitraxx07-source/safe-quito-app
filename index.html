@@ -58,6 +58,20 @@
         .card-reporte { background: white; padding: 12px; border-radius: 12px; margin-bottom: 10px; border-left: 6px solid var(--azul-oscuro); font-size: 13px; position: relative; box-shadow: 0 2px 5px rgba(0,0,0,0.08); cursor: pointer; transition: background 0.2s; }
         .card-reporte:hover { background: #fdfdfd; }
         
+        /* Estilo del contador en la esquina superior derecha de la tarjeta */
+        .contador-esquina {
+            position: absolute;
+            top: 12px;
+            right: 15px;
+            background: var(--rojo-alerta);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
         button.principal { width: 100%; padding: 16px; background: var(--azul-oscuro); color: white; border: none; border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer; margin-top: 10px; display: flex; align-items: center; justify-content: center; }
         .btn-accion { padding: 8px; border-radius: 6px; border: none; color: white; font-size: 11px; cursor: pointer; font-weight: bold; flex: 1; }
         .btn-whatsapp { width: 100%; background: var(--verde-whatsapp); color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; font-size: 12px; cursor: pointer; margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 6px; }
@@ -218,7 +232,6 @@
     let seleccionandoPunto = null;
     let puntosCoordenadas = [];
     let intervalConsultaPuntos = null;
-    let intervalRefrescoChats = null;
 
     window.onload = function() {
         miCedula = localStorage.getItem('safe_cedula');
@@ -233,6 +246,9 @@
                 retomarMonitoreoCaminata();
             }
         }
+        
+        // Iniciar el reloj de los contadores en las tarjetas de alerta segundo a segundo
+        iniciarContadorEsquina();
     };
 
     function abrirModal() { document.getElementById('modal-legal').style.display = 'flex'; }
@@ -360,10 +376,11 @@
 
                 html += `
                 <div class="card-reporte" style="border-left: 6px solid ${colorBadge};" onclick="enfocarAlertaEnMapa('${coordsReal}', '${origenGps}', '${destinoGps}', '${r.tipo_alerta}', '${nombreCompleto}', ${r.id})">
-                    <span style="background:${colorBadge}; color:white; padding:2px 8px; border-radius:6px; font-size:10px; font-weight:bold; position:absolute; right:10px; top:10px;">
-                        ${textoBadge}
+                    <!-- CONTADOR EN LA ESQUINA SUPERIOR DERECHA -->
+                    <span class="contador-esquina" data-fecha="${r.fecha}">
+                        ⏱️ 0s
                     </span>
-                    
+
                     <h3 style="margin: 0 0 8px 0; color: var(--azul-oscuro); font-size: 15px; text-transform:uppercase;">${r.tipo_alerta}</h3>
                     
                     <div style="font-size: 12px; line-height: 1.6; color: #333; text-align:left;">
@@ -409,6 +426,40 @@
             console.error("Error al cargar reportes:", e); 
             document.getElementById('lista-reportes').innerHTML = "<p style='font-size:12px;color:red;text-align:center;'>Error al obtener alertas.</p>";
         }
+    }
+
+    // Función que actualiza el contador segundo a segundo en cada tarjeta activa
+    function iniciarContadorEsquina() {
+        setInterval(() => {
+            const contadores = document.querySelectorAll('.contador-esquina');
+            
+            contadores.forEach(el => {
+                const fechaStr = el.getAttribute('data-fecha');
+                if (!fechaStr) return;
+
+                const fechaLimpia = fechaStr.replace(' ', 'T');
+                const creacion = new Date(fechaLimpia);
+                const ahora = new Date();
+
+                let diferenciaSegundos = Math.floor((ahora - creacion) / 1000);
+                if (diferenciaSegundos < 0) diferenciaSegundos = 0;
+
+                const horas = Math.floor(diferenciaSegundos / 3600);
+                const minutos = Math.floor((diferenciaSegundos % 3600) / 60);
+                const segundos = diferenciaSegundos % 60;
+
+                let textoTiempo = '';
+                if (horas > 0) {
+                    textoTiempo = `${horas}h ${minutos}m`;
+                } else if (minutos > 0) {
+                    textoTiempo = `${minutos}m ${segundos}s`;
+                } else {
+                    textoTiempo = `${segundos}s`;
+                }
+
+                el.innerHTML = `⏱️ ${textoTiempo}`;
+            });
+        }, 1000);
     }
 
     async function trazarRutaVial(origenCoords, destinoCoords) {
