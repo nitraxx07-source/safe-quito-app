@@ -336,16 +336,16 @@
         setInterval(cargarReportes, 10000);
     }
 
-    // Función corregida para limpiar microsegundos y mostrar la hora local exacta de Ecuador
+    // Corrección definitiva para la hora local exacta de Ecuador y limpieza de microsegundos/desfase UTC
     function formatearFechaHora(fechaStr) {
         if (!fechaStr) return 'Fecha desc.';
         try {
             let fechaLimpia = fechaStr.trim();
             
-            // Limpiar milisegundos / microsegundos excesivos (ej: .218163+00)
+            // Limpieza de formato estándar SQL / ISO
             if (fechaLimpia.includes('.')) {
                 fechaLimpia = fechaLimpia.split('.')[0] + 'Z';
-            } else if (fechaLimpia.includes(' ') && !fechaLimpia.endsWith('Z')) {
+            } else if (fechaLimpia.includes(' ') && !fechaLimpia.endsWith('Z') && !fechaLimpia.includes('+')) {
                 fechaLimpia = fechaLimpia.replace(' ', 'T') + 'Z';
             } else if (fechaLimpia.includes(' ')) {
                 fechaLimpia = fechaLimpia.replace(' ', 'T');
@@ -395,7 +395,6 @@
                 const cedulaVecino = r.cedula || r.cedula_vecino || 'S/N';
                 const celularVecino = r.celular || 'Sin número';
                 
-                // Corrección de dirección para evitar mostrar coordenadas crudas o "Hacia: [lat,lng]"
                 let direccionVecino = r.direccion_exacta || 'Dirección no especificada';
                 if ((direccionVecino.includes(',') && (direccionVecino.includes('-') || direccionVecino.length < 25)) || direccionVecino.startsWith('Hacia:')) {
                     direccionVecino = r.tipo_alerta === 'Ruta Segura' || r.tipo_alerta === 'CAMINATA_SEGURA' 
@@ -431,12 +430,10 @@
                 if (!timestampCreacion) {
                     try {
                         let fechaLimpia = r.created_at.trim();
-                        if (fechaLimpia.includes('.')) {
-                            fechaLimpia = fechaLimpia.split('.')[0] + 'Z';
-                        } else if (fechaLimpia.includes(' ') && !fechaLimpia.endsWith('Z')) {
+                        if (fechaLimpia.includes(' ') && !fechaLimpia.endsWith('Z') && !fechaLimpia.includes('+')) {
                             fechaLimpia = fechaLimpia.replace(' ', 'T') + 'Z';
-                        } else {
-                            fechaLimpia = fechaLimpia.replace(' ', 'T');
+                        } else if (fechaLimpia.includes('.')) {
+                            fechaLimpia = fechaLimpia.split('.')[0] + 'Z';
                         }
                         timestampCreacion = new Date(fechaLimpia).getTime();
                         if (isNaN(timestampCreacion)) {
@@ -954,6 +951,7 @@
             const gpsStr = `${lat},${lng}`;
 
             try {
+                // 1. Iniciar la ruta segura en el backend
                 const res = await fetch(`${API_URL}/trayecto/iniciar`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -968,6 +966,21 @@
                 const data = await res.json();
 
                 if (res.ok) {
+                    // 2. Disparar también el reporte general para que aparezca en el panel de todos los vecinos con notificación
+                    try {
+                        await fetch(`${API_URL}/reportar`, {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({
+                                cedula: miCedula, 
+                                tipo: 'Ruta Segura', 
+                                gps: gpsStr
+                            })
+                        });
+                    } catch(err) {
+                        console.error("Error al reportar difusión de ruta segura", err);
+                    }
+
                     localStorage.setItem('safe_caminata_activa', 'true');
                     localStorage.setItem('safe_caminata_salida', salida);
                     localStorage.setItem('safe_caminata_destino', destino);
@@ -977,8 +990,7 @@
                         miAlertaCaminataId = data.id;
                     }
                     
-                    // 🔔 Notificación visual de confirmación para Ruta Segura
-                    alert("🟢 ¡Ruta Segura activada con éxito! Tus vecinos y el sistema están monitoreando tu trayecto.");
+                    alert("🟢 ¡Ruta Segura activada y notificada a los vecinos con éxito!");
 
                     iniciarWatchGPS(salida, destino);
                     cargarReportes();
