@@ -336,19 +336,21 @@
         setInterval(cargarReportes, 10000);
     }
 
-    // Función limpia corregida para parsear hora local estricta de Ecuador (Restando 5 horas si viene en formato UTC crudo)
+    // Función segura para formatear la hora forzando la zona horaria de Ecuador (America/Guayaquil)
     function formatearFechaHora(fechaStr) {
         if (!fechaStr) return 'Fecha desc.';
         try {
             let fechaLimpia = fechaStr.trim();
-            if (fechaLimpia.includes(' ')) {
+            if (fechaLimpia.includes(' ') && !fechaLimpia.includes('T') && !fechaLimpia.endsWith('Z')) {
+                // Si viene como "YYYY-MM-DD HH:mm:ss" sin indicador UTC, le agregamos 'Z' o manejamos como UTC exacto del servidor
+                fechaLimpia = fechaLimpia.replace(' ', 'T') + 'Z';
+            } else if (fechaLimpia.includes(' ')) {
                 fechaLimpia = fechaLimpia.replace(' ', 'T');
             }
-            // Si la fecha viene del servidor sin indicador de zona horaria, la parseamos asegurando el offset de Ecuador
+            
             let fecha = new Date(fechaLimpia);
             if (isNaN(fecha.getTime())) return fechaStr;
 
-            // Forzar ajuste para UTC-5 (Ecuador) restando el desfase si el servidor lo mandó como hora local por error
             const opcionesFecha = { timeZone: 'America/Guayaquil', day: '2-digit', month: '2-digit', year: 'numeric' };
             const opcionesHora = { timeZone: 'America/Guayaquil', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
             
@@ -414,18 +416,23 @@
                 const urlCompartirWS = `https://api.whatsapp.com/send?text=${mensajeWS}`;
                 const fechaHoraLegible = formatearFechaHora(r.created_at);
 
-                // Convertir la fecha a timestamp exacto para el atributo data
-                let timestampCreacion = 0;
-                try {
-                    let fechaLimpia = r.created_at.trim().replace(' ', 'T');
-                    timestampCreacion = new Date(fechaLimpia).getTime();
-                    // Si el servidor entrega hora local sin Z y el navegador lo lee mal, corregimos restando 5 horas en ms si es necesario
-                    // Pero para evitar desfases, usamos Date.parse puro manejando milisegundos directos
-                    if (isNaN(timestampCreacion)) {
+                // Cálculo exacto del timestamp en milisegundos para evitar reinicios al reabrir la app
+                let timestampCreacion = r.created_at_ms;
+                if (!timestampCreacion) {
+                    try {
+                        let fechaLimpia = r.created_at.trim();
+                        if (fechaLimpia.includes(' ') && !fechaLimpia.endsWith('Z')) {
+                            fechaLimpia = fechaLimpia.replace(' ', 'T') + 'Z';
+                        } else {
+                            fechaLimpia = fechaLimpia.replace(' ', 'T');
+                        }
+                        timestampCreacion = new Date(fechaLimpia).getTime();
+                        if (isNaN(timestampCreacion)) {
+                            timestampCreacion = Date.now();
+                        }
+                    } catch(err) {
                         timestampCreacion = Date.now();
                     }
-                } catch(err) {
-                    timestampCreacion = Date.now();
                 }
 
                 html += `
@@ -485,7 +492,7 @@
         }
     }
 
-    // Contador optimizado basado puramente en milisegundos de diferencia para que corra fluido sin errores de formato
+    // El contador calcula el tiempo real transcurrido usando el timestamp exacto
     function iniciarContadorEsquina() {
         setInterval(() => {
             const contadores = document.querySelectorAll('.contador-esquina');
@@ -1105,7 +1112,7 @@
                 alert("✅ Usuario eliminado");
                 document.getElementById('input-borrar').value = "";
             } else {
-                alert("❌ Error: " + (data.msj || 'No autorizado'));
+                alert("❌ Error: " + (data.msj || 'Not autorizado'));
             }
         } catch(e) {
             alert("Error de conexión");
