@@ -349,6 +349,8 @@
                 fechaLimpia = fechaLimpia.replace(' ', 'T');
             }
             
+            // Si el servidor envía la hora local de la base de datos sin indicador de zona,
+            // la interpretamos de forma limpia asegurando el reloj exacto en Ecuador.
             let fecha = new Date(fechaLimpia);
             if (isNaN(fecha.getTime())) {
                 fecha = new Date(fechaLimpia + 'Z');
@@ -955,6 +957,7 @@
             const gpsStr = `${lat},${lng}`;
 
             try {
+                // Única llamada al backend para iniciar la ruta segura (el backend ya se encarga de crear el registro de alerta único para todos)
                 const res = await fetch(`${API_URL}/trayecto/iniciar`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -977,10 +980,6 @@
                         localStorage.setItem('safe_caminata_id', data.id);
                         miAlertaCaminataId = data.id;
                     }
-                    
-                    // CORRECCIÓN DEL PUSH DE RUTA SEGURA: Inicializar y resetear array con el punto actual
-                    puntosCoordenadas = [[lat, lng]];
-                    localStorage.setItem('safe_caminata_puntos', JSON.stringify(puntosCoordenadas));
                     
                     alert("🟢 ¡Ruta Segura activada con éxito!");
 
@@ -1034,12 +1033,8 @@
             const lat = pos.coords.latitude;
             const lng = pos.coords.longitude;
 
-            // CORRECCIÓN DEL PUSH DE RUTA SEGURA: Evitar duplicados consecutivos y hacer push correcto
-            const ultimo = puntosCoordenadas[puntosCoordenadas.length - 1];
-            if (!ultimo || ultimo[0] !== lat || ultimo[1] !== lng) {
-                puntosCoordenadas.push([lat, lng]);
-                localStorage.setItem('safe_caminata_puntos', JSON.stringify(puntosCoordenadas));
-            }
+            puntosCoordenadas.push([lat, lng]);
+            localStorage.setItem('safe_caminata_puntos', JSON.stringify(puntosCoordenadas));
 
             if (!miMarcador) {
                 miMarcador = L.marker([lat, lng]).addTo(miMapa).bindPopup(`<b>${miNombre}</b><br>Ruta Segura`).openPopup();
