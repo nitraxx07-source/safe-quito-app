@@ -249,7 +249,7 @@ def eliminar_usuario(cedula_objetivo):
         if conn:
             conn.close()
 
-# 5. OBTENER REPORTES (Libre de restricciones estrictas para evitar listas vacías)
+# 5. OBTENER REPORTES
 @app.route('/api/v1/reportes', methods=['GET'])
 def obtener_reportes():
     conn = None
@@ -262,7 +262,6 @@ def obtener_reportes():
                 r.tipo_alerta,
                 r.estado,
                 r.gps,
-                r.fecha,
                 COALESCE(r.barrio, u.barrio) AS barrio,
                 COALESCE(NULLIF(r.nombre_completo, ''), u.nombres || ' ' || u.apellidos, 'Vecino') AS nombre_completo,
                 TRIM(r.cedula_vecino::text) AS cedula_vecino,
@@ -362,7 +361,7 @@ def suscribir():
         if conn:
             conn.close()
 
-# 8. RUTAS PARA RUTA SEGURA / TRAYECTOS ACTIVOS
+# 8. TRAYECTOS ACTIVOS
 @app.route('/api/v1/trayecto/iniciar', methods=['POST'])
 def iniciar_trayecto():
     data = request.get_json() or {}
@@ -399,8 +398,6 @@ def iniciar_trayecto():
 
         conn.commit()
         cur.close()
-
-        disparar_notificaciones_push('Ruta Segura', barrio)
 
         trayectos_activos[cedula] = {
             'id_reporte': alerta_id,
@@ -518,7 +515,7 @@ def finalizar_trayecto():
         if conn:
             conn.close()
 
-# 9. CHAT DE TEXTO POR ALERTA
+# 9. CHAT
 @app.route('/api/v1/alerta/<alerta_id>/chat', methods=['GET'])
 def obtener_chat(alerta_id):
     mensajes = chats_alertas.get(str(alerta_id), [])
